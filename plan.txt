@@ -1,0 +1,49 @@
+# CLASSES
+
+Element
+
+Relationship
+
+# SETUP METHODS
+
+*def read_db* [completed]
+parse json feed and convert to element and relationship objects
+
+*status*
+identify the elements that have already been mapped
+and those that still need to be mapped
+
+*create_object_list* [completed]
+for each element that needs to be mapped
+collect and organize relationships by state and type
+
+# MAPPING METHODS
+
+*union*
+
+*subset*
+
+*combination*
+
+*adjacency*
+    not sure if this can be done using numpy arrays
+
+*conditional*
+
+#Issues to Address
+
+## subset conditionals
+
+Problem - The conditional rules used to create subset elements are
+contained within the description of the element as strings. These strings are the
+literal arcpy Con statements which are then executed using eval(). There are numerous issues
+with the formatting and syntax of these statements, which make this portion of the script buggy.
+
+Goals
+1) Abstract the logic of each conditional statement using a cleaner schema in the db.
+2) Develop a way of reading and dynamically created conditional indexing statements
+   in the subset method.
+
+## relationship type and the conditional entity
+
+Problem - Relationship type ‘condition for (code = 5)’, receives a different treatment from defined types such as food, water, shelter, and reproductive resource. When stored in the habitats dictionary every relationship with code 5 is re-assigned a unique numeric code using a counter (variable: new_relationship_counter), which is incremented for each new instance of  relationship type of 5.
