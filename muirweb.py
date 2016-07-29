@@ -3,7 +3,7 @@ from prettyprint import pp
 import numpy as np
 import operator
 import arcpy
-
+import mw_settings as s
 
 # CLASSES
 
