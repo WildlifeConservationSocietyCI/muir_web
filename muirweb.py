@@ -151,6 +151,17 @@ def json_relationship_to_object(relationship):
     return relationship_instance
 
 
+def id_path(element_id):
+    """
+    convert element id into grid path
+    :param element_id:
+    :return:path
+    """
+    element_id = str(element_id).replace('.', '_')
+    path = os.path.join(s.ROOT_DIR, '%s.tif' % element_id)
+    return path
+
+
 # MAPPING METHODS
 
 
