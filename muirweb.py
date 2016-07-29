@@ -40,11 +40,21 @@ class Element(object):
               'definition: %s \n' % self.definition, \
               'maxprob: %s \n' % self.maxprob,\
               'object list: %s \n' % self.object_list, \
-              'automap: %s\n' % self.automap
+              'automap: %s\n' % self.automap, \
+              'status: %s' % self.status
+
+    def check_status(self):
+        """
+        if grid exists status == True, this method differs from set_grid()
+        in that it does not load the raster into memory
+        :return:
+        """
+        if os.path.isfile(self.path):
+            self.status = True
 
     def set_grid(self):
         """
-        check for raster, if exists assign to grid attribute
+        if exists assign to grid attribute
         :return:
         """
         if os.path.isfile(self.path):
