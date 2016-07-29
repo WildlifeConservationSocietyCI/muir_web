@@ -65,9 +65,29 @@ class Element(object):
         # pp([(elements[r.object].name, r.object) for r in self.relationships])
         pp(self.relationships)
 
-    def sort_relationships(self, elements):
+    def check_requirements(self):
         """
-        sort and group relationship records by state and relationship type
+        check the status of objects in objects list, if all required grids exist
+        return True, else return False
+        :return:
+        """
+        ro_false = []
+        for o in self.object_list:
+            s.ELEMENTS[o].check_status()
+            print s.ELEMENTS[o].status
+            if s.ELEMENTS[o].status is False:
+                ro_false.append(o)
+
+        if len(ro_false) == 0:
+            print 's.logging.info(all required objects exist' % self.name
+            return True
+        else:
+            print 's.logging.info(objects %s missing, unable to map %s' % (ro_false, self.name)
+            return False
+
+    def sort_relationships(self):
+        """
+        sort and group object grids according to state and relationship type
         :return:
         """
         rel_dict = {}
