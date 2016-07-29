@@ -1,12 +1,11 @@
+import mw_settings as s
+import muirweb as mw
 import json
-
 from prettyprint import *
 
-import muirweb as mw
-
 # load json db
-with open(r'F:\_data\Welikia\muir_web\welikia_muirweb.json') as json_file:
-    db = json.load(json_file)
+with open(s.MW_DB) as json_file:
+    mw_db = json.load(json_file)
 
 
 # Definitions

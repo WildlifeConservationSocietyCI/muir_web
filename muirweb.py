@@ -26,7 +26,8 @@ class Element(object):
         self.relationships = []
         self.object_list = []
 
-        self.path = os.path.join('a_%s.tif' % id)
+        self.path = id_path(self.id)
+        self.status = False
         self.grid = None
 
     def show_attributes(self):
@@ -98,7 +99,8 @@ class Element(object):
             if r.type not in rel_dict[r.state].keys():
                 rel_dict[r.state][r.type] = []
 
-            rel_dict[r.state][r.type].append((r.object, elements[r.object].name))
+            # append the object grid to list keyed by state and rel type
+            rel_dict[r.state][r.type].append(s.ELEMENTS[r.object].grid)
 
         self.relationships = rel_dict
 
@@ -117,6 +119,7 @@ class Relationship(object):
         self.id = None
 
 
+
 # TRANSLATION
 
 def json_element_to_object(element):
@@ -132,6 +135,7 @@ def json_element_to_object(element):
     element_instance.definition = element['definition']
     element_instance.description = element['description']
     element_instance.automap = element['automap']
+    element_instance.path = id_path(element_instance.id)
     return element_instance
 
 
