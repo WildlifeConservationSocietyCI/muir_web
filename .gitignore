@@ -3,3 +3,4 @@ test/
 sql_queries/
 scratch.py
 *.pyc
+element_grids/
