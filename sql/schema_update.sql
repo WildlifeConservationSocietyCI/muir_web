@@ -51,18 +51,47 @@ DROP COLUMN spatialsource,
 DROP COLUMN notes,
 DROP COLUMN lifetype;
 
---
--- SELECT 	elementid, 
--- 	mw_commonname, 
--- 	mw_definition, 
--- 	automap,
--- 	p.name,
--- 	es.mw_likelihood
--- FROM welikia_mw_element e
+-- ADD COLUMNS TO WELIKIA_MW_ELEMENT
+ALTER TABLE welikia_mw_element
+ADD COLUMN subset_rule text NOT NULL DEFAULT ''::text,
 
--- INNER JOIN welikia_mw_probability p
--- 	   ON e.probability = p.id
+UPDATE 	welikia_mw_element e
+   SET 	subset_rule = (SELECT d.description
+   FROM	welikia_mw_element_description d
+   WHERE (d.id = e.description_id AND e.mw_definition = 2)
+	  AND (d.description IS NOT NULL)
+	  AND (e.automap = TRUE));
 
---       JOIN e_species es
---            ON e.elementid = es.mw_elementid
--- WHERE es.mw_likelihood != p.name
+ALTER TABLE welikia_mw_element
+ADD COLUMN adjacency_rule integer;
+UPDATE 	welikia_mw_element e
+   SET 	adjacency_rule = (SELECT d.description::integer
+   FROM	welikia_mw_element_description d
+
+   WHERE (d.id = e.description_id AND e.mw_definition = 3)
+	 AND (d.description IS NOT NULL)
+	 AND (e.automap = TRUE)
+	 AND (d.description ~ E'^\\d+$'));
+
+-- ADD POLARITY TO RELATIONSHIP
+ALTER TABLE welikia_mw_relationship
+ADD COLUMN polarity boolean NOT NULL DEFAULT TRUE;
+
+UPDATE 	welikia_mw_relationship
+   SET 	polarity = FALSE
+   WHERE strengthtype = 2
+   		 strengthtype = 4;
+
+-- REFACTOR STRENGTH TYPES
+-- new strength scale: 0 = 0.25, 1 = 0.50, 2 = 0.75, 3 = 1.0
+UPDATE 	welikia_mw_relationship
+   SET 	strengthtype_id = 2
+   WHERE strengthtype_id = 6   	-- subcentral
+   		 OR strengthtype_id = 2 -- attenuating
+   		 ;
+
+UPDATE 	welikia_mw_relationship
+   SET 	strengthtype_id = 2
+   WHERE strengthtype_id = 6   	-- subcentral
+   		 OR strengthtype_id = 2 -- attenuating
+   		 ;
