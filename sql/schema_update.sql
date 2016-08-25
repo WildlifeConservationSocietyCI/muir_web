@@ -71,13 +71,13 @@ ALTER TABLE welikia_mw_element ADD COLUMN adjacency_rule integer;
 
 UPDATE welikia_mw_element AS e
    SET adjacency_rule =
-	   (SELECT d.description::integer
-		  FROM welikia_mw_element_description AS d
-		 WHERE (d.id = e.description_id
-  	       AND e.mw_definition = 3)
-		   AND (d.description IS NOT NULL)
-		   AND (e.automap = TRUE)
-		   AND (d.description ~ E'^\\d+$'));
+       (SELECT d.description::integer
+	  FROM welikia_mw_element_description AS d
+	 WHERE (d.id = e.description_id
+  	   AND e.mw_definition = 3)
+	   AND (d.description IS NOT NULL)
+	   AND (e.automap = TRUE)
+	   AND (d.description ~ E'^\\d+$'));
 
  -- ADD POLARITY TO RELATIONSHIP
 
