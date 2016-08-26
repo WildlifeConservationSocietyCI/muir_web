@@ -130,3 +130,34 @@ new strength scale:
 --     OR strengthtype_id = 3  -- required
 --     OR strengthtype_id = 4  -- exclusionary
 --     OR strengthtype_id = 5; -- central
+
+-- E LIKELIHOOD
+-- fill lookup table
+INSERT INTO e_likelihood (id, name)
+VALUES (DEFAULT, 'likely');
+
+INSERT INTO e_likelihood (id, name)
+VALUES (DEFAULT, 'probable');
+
+INSERT INTO e_likelihood (id, name)
+VALUES (DEFAULT, 'possible');
+
+INSERT INTO e_likelihood (id, name)
+VALUES (DEFAULT, 'remotely possible');
+
+-- update historical_likelihood based on mw_likelihood
+UPDATE e_species
+   SET historical_likelihood = 1
+ WHERE mw_likelihood = 'Likely';
+
+UPDATE e_species
+   SET historical_likelihood = 2
+ WHERE mw_likelihood = 'Probable';
+
+UPDATE e_species
+   SET historical_likelihood = 3
+ WHERE mw_likelihood = 'Possible';
+
+UPDATE e_species
+   SET historical_likelihood = 4
+ WHERE mw_likelihood = 'Remotely Possible';
