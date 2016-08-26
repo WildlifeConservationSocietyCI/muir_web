@@ -58,7 +58,7 @@ DROP COLUMN lifetype;
 
  -- ADD COLUMNS TO WELIKIA_MW_ELEMENT
 
-ALTER TABLE welikia_mw_element ADD COLUMN subset_rule text NOT NULL DEFAULT ''::text,
+ALTER TABLE welikia_mw_element ADD COLUMN subset_rule text;
 
 UPDATE welikia_mw_element AS e
    SET subset_rule =
@@ -74,13 +74,13 @@ ALTER TABLE welikia_mw_element ADD COLUMN adjacency_rule integer;
 
 UPDATE welikia_mw_element AS e
    SET adjacency_rule =
-	   (SELECT d.description::integer
-		  FROM welikia_mw_element_description AS d
-		 WHERE (d.id = e.description_id
-  	       AND e.mw_definition = 3)
-		   AND (d.description IS NOT NULL)
-		   AND (e.automap = TRUE)
-		   AND (d.description ~ E'^\\d+$'));
+       (SELECT d.description::integer
+          FROM welikia_mw_element_description AS d
+         WHERE (d.id = e.description_id
+           AND e.mw_definition = 3)
+           AND (d.description IS NOT NULL)
+           AND (e.automap = TRUE)
+           AND (d.description ~ E'^\\d+$'));
 
 -- IMPLEMENT RELATIONSHIP GROUP
 /*
@@ -92,17 +92,17 @@ this statement will be written by Kim
 "relationship_type" was previously used to group similar kinds of
 requirements (food, water, shelter).
 
-This field now refers to the direction of an object's effect on its
-subject. Enhancing and attenuating types scale the "core habitat"
-(required) in positive and negative directions respectivly. The type
-will point relationships to the appropriate arethmetic operation.
+This field now refers to the effect an object's on the pressence of its
+subject. Enhancing and attenuating types increase and decrease the
+suitability of "core habitat" through scaling multiplication.
+The type attribute will point relationships to the appropriate operation.
 
 The field will filled using old strength_types
 
 relationship_types:
-	required = 0		(object * weigth)
-	enhancing = 1		1 + (object * weight)
-	attenuating = 2 	1 - (object * weight)
+	required = 0      (object * weigth)
+	enhancing = 1	    1 + (object * weight)
+	attenuating = 2   1 - (object * weight)
 */
 
 ALTER TABLE welikia_mw_relationship ADD COLUMN relationship_type integer NOT NULL;
@@ -118,7 +118,7 @@ UPDATE welikia_mw_relationship
 -- update enhancing relationship_type
 UPDATE welikia_mw_relationship
    SET relationship_type = 1
- WHERE strengthtype = 1;  -- attenuating
+ WHERE strengthtype = 1;  -- enhancing
 
 -- update attenuating relationship_type
 UPDATE welikia_mw_relationship
@@ -128,10 +128,10 @@ UPDATE welikia_mw_relationship
 
 -- REFACTOR STRENGTH TYPES
 /*
-new schema seperates the idea of strength and type.
-ie. a relationship can be strongly attenuating or strongly enhancing.
-the new strength is a scale ranging from weak -> strong.
-only refactor after the new relationship_type field is populated
+New schema seperates the idea of strength and relationship type
+(ie. a relationship can be strongly attenuating or strongly enhancing).
+The new strength value is on a scale ranging from weak (0) -> strong (1).
+Only refactor after the new relationship_type field is populated
 new strength scale:
 	0 = 0.25,
 	1 = 0.50
