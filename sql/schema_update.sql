@@ -107,7 +107,112 @@ CREATE TABLE e_likelihood
   CONSTRAINT e_likelihood_pkey PRIMARY KEY (id)
 );
 
--- TODO: IMPLEMENT RELATIONSHIP GROUP
+-- create state table
+CREATE TABLE welikia_mw_state
+(
+  id serial NOT NULL,
+  old_state integer,
+  CONSTRAINT welikia_mw_state_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_state
+  OWNER TO mannahatta;
+
+-- create group table
+CREATE TABLE welikia_mw_group
+(
+  id serial NOT NULL,
+  old_group integer,
+  CONSTRAINT welikia_mw_group_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_group
+  OWNER TO mannahatta;
+
+-- add state_id and group_id field to relationship table
+ALTER TABLE welikia_mw_relationship ADD COLUMN state_id integer;
+ALTER TABLE welikia_mw_relationship ADD COLUMN group_id integer;
+
+-- drop habitatstate_id constraint
+ALTER TABLE welikia_mw_relationship DROP CONSTRAINT mw_relationship_mw_habitatstate;
+
+-- update relationship function
+CREATE OR REPLACE FUNCTION public.update_relationships()
+  RETURNS boolean AS
+$BODY$
+DECLARE
+  s_new_event_row welikia_mw_state%ROWTYPE;
+  g_new_event_row welikia_mw_group%ROWTYPE;
+  s RECORD;
+  g RECORD;
+  mw_e welikia_mw_element;
+  mw_r welikia_mw_relationship;
+BEGIN
+    FOR mw_e IN
+    SELECT * FROM welikia_mw_element
+
+    -- for elements in welikia_me_element table
+    LOOP
+
+      RAISE NOTICE 'MW element %', mw_e.mw_commonname;
+
+      -- for distinct states in an element's relationships
+      FOR s IN SELECT DISTINCT rels.habitatstate_id
+      FROM welikia_mw_relationship AS rels
+      WHERE rels.id_subject = mw_e.elementid
+      LOOP
+        RAISE NOTICE 'state: %', s.habitatstate_id;
+        -- create a new record in welikia_mw_states
+        -- and return into new_event_row
+        FOR g in SELECT DISTINCT rels.relationshiptype_id
+        FROM welikia_mw_relationship AS rels
+        WHERE rels.id_subject = mw_e.elementid
+        AND rels.habitatstate_id = s.habitatstate_id
+        LOOP
+          WITH new_event AS (
+          INSERT INTO welikia_mw_group (old_group) VALUES (g.relationshiptype_id)
+          RETURNING *
+          )
+          SELECT * FROM new_event INTO g_new_event_row;
+
+          RAISE NOTICE 'new group id %', g_new_event_row.id;
+          -- update relationship group in welikia_mw_relationship using new group id
+          UPDATE welikia_mw_relationship
+          SET group_id = g_new_event_row.id
+          WHERE id_subject = mw_e.elementid
+            AND welikia_mw_relationship.habitatstate_id = s.habitatstate_id
+            AND welikia_mw_relationship.relationshiptype_id = g_new_event_row.old_group;
+        END LOOP;
+        WITH new_event AS (
+        INSERT INTO welikia_mw_state (old_state) VALUES (s.habitatstate_id)
+        RETURNING *
+        )
+        SELECT * FROM new_event INTO s_new_event_row;
+
+        RAISE NOTICE 'new state id %', s_new_event_row.id;
+        -- update relationship state in welikia_mw_relationship using new state id
+        UPDATE welikia_mw_relationship
+        SET habitatstate_id = s_new_event_row.id
+        WHERE id_subject = mw_e.elementid
+          AND welikia_mw_relationship.habitatstate_id = s_new_event_row.old_state;
+
+      END LOOP;
+    END LOOP;
+    RETURN TRUE;
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+ALTER FUNCTION public.update_relationships()
+  OWNER TO mannahatta;
+
+SELECT update_relationships()
+
+
 
 -- relationship type: value is a key to welikia_relationshiptype
 -- -- these changes can only be made after relationship group is added
