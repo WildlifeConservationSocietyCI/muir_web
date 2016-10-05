@@ -29,6 +29,7 @@ ALTER TABLE welikia_mw_element DROP COLUMN description_id;
 ALTER TABLE welikia_mw_element DROP COLUMN writtendefinition;
 DROP TABLE welikia_mw_element_description;
 
+DROP TABLE welikia_mw_habitatstate;
 
 -- What follows is for the model inheritance approach we've abandoned for the time being.
 
