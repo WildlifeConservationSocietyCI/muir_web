@@ -111,7 +111,7 @@ CREATE TABLE e_likelihood
 CREATE TABLE welikia_mw_state
 (
   id serial NOT NULL,
-  old_state integer,
+  legacy_habitatstate_id integer,
   CONSTRAINT welikia_mw_state_pkey PRIMARY KEY (id)
 )
 WITH (
@@ -124,7 +124,7 @@ ALTER TABLE welikia_mw_state
 CREATE TABLE welikia_mw_group
 (
   id serial NOT NULL,
-  old_group integer,
+  legacy_relationshiptype_id integer,
   CONSTRAINT welikia_mw_group_pkey PRIMARY KEY (id)
 )
 WITH (
@@ -133,9 +133,25 @@ WITH (
 ALTER TABLE welikia_mw_group
   OWNER TO mannahatta;
 
+-- create interaction type table
+CREATE TABLE public.welikia_mw_interactiontype
+(
+   id serial,
+   name character varying(100) NOT NULL,
+   operation character varying(100) NOT NULL,
+   CONSTRAINT welikia_mw_interaction_pkey PRIMARY KEY (id)
+)
+WITH (
+  OIDS = FALSE
+)
+;
+ALTER TABLE public.welikia_mw_interactiontype
+  OWNER TO mannahatta;
+
 -- add state_id and group_id field to relationship table
 ALTER TABLE welikia_mw_relationship ADD COLUMN state_id integer;
 ALTER TABLE welikia_mw_relationship ADD COLUMN group_id integer;
+ALTER TABLE welikia_mw_relationship ADD COLUMN interactiontype_id integer;
 
 -- drop habitatstate_id constraint
 ALTER TABLE welikia_mw_relationship DROP CONSTRAINT mw_relationship_mw_habitatstate;

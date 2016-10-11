@@ -64,6 +64,11 @@ UPDATE welikia_mw_element AS e
            AND (d.description ~ E'^\\d+$'));
 
 
+-- INSERT VALUES INTO INTERACTION TYPE TABLE
+INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('required', '(object * weight)');
+INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('enhancing', '(1 + (object * weight))');
+INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('exclusionary', '(1 - (object * weight))');
+
 /*
 "relationship_type" was previously used to group similar kinds of
 requirements (food, water, shelter).
@@ -82,6 +87,7 @@ relationship_types:
 */
 
 
+-- REFACTOR GROUPING SYSTEM (relationshiptype and habitatstate)
 -- update relationship state and group function
 CREATE OR REPLACE FUNCTION public.update_relationships()
   RETURNS boolean AS
@@ -128,7 +134,7 @@ BEGIN
 
             LOOP
               WITH new_event AS (
-              INSERT INTO welikia_mw_group (old_group) VALUES (g5.relationshiptype_id)
+              INSERT INTO welikia_mw_group (legacy_relationshiptype_id) VALUES (g5.relationshiptype_id)
               RETURNING *
               )
               SELECT * FROM new_event INTO g_new_event_row;
@@ -138,13 +144,13 @@ BEGIN
               SET group_id = g_new_event_row.id
               WHERE id_subject = mw_e.elementid
                 AND welikia_mw_relationship.habitatstate_id = s.habitatstate_id
-                AND welikia_mw_relationship.relationshiptype_id = g_new_event_row.old_group
+                AND welikia_mw_relationship.relationshiptype_id = g_new_event_row.legacy_relationshiptype_id
                 And welikia_mw_relationship.id = g5.id;
             END LOOP; -- end relationshiptype 5 loop
          -- else create new group_id for all relationships with shared relationshiptype_id
          ELSE
             WITH new_event AS (
-            INSERT INTO welikia_mw_group (old_group) VALUES (g.relationshiptype_id)
+            INSERT INTO welikia_mw_group (legacy_relationshiptype_id) VALUES (g.relationshiptype_id)
             RETURNING *
             )
             SELECT * FROM new_event INTO g_new_event_row;
@@ -155,12 +161,12 @@ BEGIN
             SET group_id = g_new_event_row.id
             WHERE id_subject = mw_e.elementid
               AND welikia_mw_relationship.habitatstate_id = s.habitatstate_id
-              AND welikia_mw_relationship.relationshiptype_id = g_new_event_row.old_group;
+              AND welikia_mw_relationship.relationshiptype_id = g_new_event_row.legacy_relationshiptype_id;
           END IF; -- end relationshiptype_id conditional
         END LOOP; -- end group loop
 
         WITH new_event AS (
-        INSERT INTO welikia_mw_state (old_state) VALUES (s.habitatstate_id)
+        INSERT INTO welikia_mw_state (legacy_habitatstate_id) VALUES (s.habitatstate_id)
         RETURNING *
         )
         SELECT * FROM new_event INTO s_new_event_row;
@@ -170,7 +176,7 @@ BEGIN
         UPDATE welikia_mw_relationship
         SET habitatstate_id = s_new_event_row.id
         WHERE id_subject = mw_e.elementid
-          AND welikia_mw_relationship.habitatstate_id = s_new_event_row.old_state;
+          AND welikia_mw_relationship.habitatstate_id = s_new_event_row.legacy_habitatstate_id;
 
       END LOOP; -- end state loop
     END LOOP; -- end element loop
@@ -184,49 +190,74 @@ ALTER FUNCTION public.update_relationships()
 
 SELECT update_relationships();
 
--- UPDATE welikia_mw_relationship
---    SET relationship_type = 0
---  WHERE strengthtype = 0  -- central
---     OR strengthtype = 3  -- required
---     OR strengthtype = 5  -- central
---     OR strengthtype = 6; -- subcentral
+-- move new habitat state to state_id column
+UPDATE welikia_mw_relationship
+   SET state_id = habitatstate_id;
 
--- -- update enhancing relationship_type
--- UPDATE welikia_mw_relationship
---    SET relationship_type = 1
---  WHERE strengthtype = 1;  -- enhancing
-
--- -- update attenuating relationship_type
--- UPDATE welikia_mw_relationship
---    SET relationship_type = 2
---  WHERE strengthtype = 2  -- attenuating
---     OR strengthtype = 4; -- exclusionary
-
--- REFACTOR STRENGTH TYPES
+-- REFACTOR STRENGTH AND INTERACTION TYPES
 /*
 New schema separates the idea of strength and relationship type
 (ie. a relationship can be strongly attenuating or strongly enhancing).
 The new strength value is on a scale ranging from weak (0) -> strong (1).
-Only refactor after the new relationship_type field is populated
+Only refactor after the interactiontype_id field is populated
 new strength scale:
-  0 = 0.25,
-  1 = 0.50
-  2 = 0.75
-  3 = 1.00
+  0 = 25,
+  1 = 50
+  2 = 75
+  3 = 100
 */
 
--- UPDATE welikia_mw_relationship
---    SET strengthtype_id = 2
---  WHERE strengthtype_id = 6  -- subcentral
---     OR strengthtype_id = 2; -- attenuating
+-- update interactiontype_id based on original strength values
+UPDATE welikia_mw_relationship AS r
+   SET interactiontype_id = 1   -- requirement
+   WHERE r.strengthtype_id = 0  -- central
+      OR r.strengthtype_id = 3  -- required
+      OR r.strengthtype_id = 5  -- central
+      OR r.strengthtype_id = 6; -- subcentral
+
+UPDATE welikia_mw_relationship AS r
+   SET interactiontype_id = 1   -- requirement
+   WHERE r.strengthtype_id = 1;  -- enhancing
+
+UPDATE welikia_mw_relationship AS r
+   SET interactiontype_id = 2   -- exculsionary
+   WHERE r.strengthtype_id = 2  -- attenuating
+      OR r.strengthtype_id = 4; -- exclusionary
+
+-- update strengthtype table
+UPDATE welikia_mw_strengthtype
+   SET prob = 25
+   WHERE id = 0;
+
+UPDATE welikia_mw_strengthtype
+  SET prob = 50
+  WHERE id = 1;
+
+UPDATE welikia_mw_strengthtype
+   SET prob = 75
+   WHERE id = 2;
+
+UPDATE welikia_mw_strengthtype
+    SET prob = 100
+    WHERE id = 3;
+
+-- delete unused strengthtype records
+DELETE FROM welikia_mw_strengthtype
+WHERE id > 3;
+
+-- update strengthtype_id in welikia_mw_relationship
+UPDATE welikia_mw_relationship
+   SET strengthtype_id = 2  -- 75%
+ WHERE strengthtype_id = 6  -- subcentral
+    OR strengthtype_id = 2; -- attenuating
 
 
--- UPDATE welikia_mw_relationship
---    SET strengthtype_id = 3
---  WHERE strengthtype_id = 0  -- central
---     OR strengthtype_id = 3  -- required
---     OR strengthtype_id = 4  -- exclusionary
---     OR strengthtype_id = 5; -- central
+UPDATE welikia_mw_relationship
+   SET strengthtype_id = 3  -- 100%`
+ WHERE strengthtype_id = 0  -- central
+    OR strengthtype_id = 3  -- required
+    OR strengthtype_id = 4  -- exclusionary
+    OR strengthtype_id = 5; -- central
 
 -- E LIKELIHOOD
 -- fill lookup table
