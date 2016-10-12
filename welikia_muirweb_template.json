@@ -9,7 +9,7 @@
         },
         "nodes": [
             {
-                "elementid": "0",
+                "elementid": "0.0",
                 "commonname": "element zero",
                 "properties": {
                     "definition": "values",
@@ -20,27 +20,27 @@
                 }
             },
             {
-                "elementid": "1",
+                "elementid": "1.0",
                 "commonname": "element one",
                 "properties": {
-                    "definition": "values",
-                    "maxprob": "values",
-                    "subset_rule": "values",
-                    "adjacency_rule": "values",
+                    "definition": "1",
+                    "maxprob": "90",
+                    "subset_rule": "con([Grid] >= 2 and [Grid] <= 5,MaxProb,0)",
+                    "adjacency_rule": "50",
                     "spatial": true
                 }
             }
         ],
         "edges": [
             {
-                "source": "0",
-                "target": "1",
+                "source": "0.0",
+                "target": "1.0",
                 "directed": true,
                 "properties": {
-                    "state": "values",
-                    "group": "values",
-                    "strength": "values",
-                    "interaction": "values"
+                    "state": "1",
+                    "group": "1",
+                    "strength": "3",
+                    "interaction": "0"
                 }
             }
         ]
