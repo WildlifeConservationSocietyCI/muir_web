@@ -19,7 +19,6 @@ class Element(object):
         self.id = None
         self.name = None
         self.automap = None
-        self.name = None
         self.maxprob = None
         self.definition = None
         self.description = None
@@ -61,10 +60,19 @@ class Element(object):
         if os.path.isfile(self.path):
             self.grid = 'raster_to_numpy(self.path) or arcpy.Raster(self.path)'
 
-    def show_requirements(self):
-        print self.name, 'requirements:'
-        # pp([(elements[r.object].name, r.object) for r in self.relationships])
-        pp(self.relationships)
+    def show_relationships(self):
+        print self.id, self.name, 'requirements:'
+        rel_dict = {}
+
+        for r in self.relationships:
+            if r.state not in rel_dict.keys():
+                rel_dict[r.state] = {}
+            if r.group not in rel_dict[r.state].keys():
+                rel_dict[r.state][r.group] = []
+
+            rel_dict[r.state][r.group].append('%s\t%s' % (r.object, s.ELEMENTS[r.object].name))
+
+        pp(rel_dict)
 
     def check_requirements(self):
         """
@@ -80,13 +88,13 @@ class Element(object):
                 ro_false.append(o)
 
         if len(ro_false) == 0:
-            print 's.logging.info(all required objects exist' % self.name
+            print 's.logging.info(all required objects exist'
             return True
         else:
             print 's.logging.info(objects %s missing, unable to map %s' % (ro_false, self.name)
             return False
 
-    def sort_relationships(self):
+    def set_relationship_grids(self):
         """
         sort and group object grids according to state and relationship type
         :return:
@@ -100,7 +108,7 @@ class Element(object):
                 rel_dict[r.state][r.type] = []
 
             # append the object grid to list keyed by state and rel type
-            rel_dict[r.state][r.type].append(s.ELEMENTS[r.object].grid)
+            rel_dict[r.state][r.type].append(arcpy.RasterToNumPyArray(s.ELEMENTS[r.object].path))
 
         self.relationships = rel_dict
 
@@ -113,11 +121,10 @@ class Relationship(object):
     def __init__(self):
         self.subject = None
         self.object = None
-        self.type = None
+        self.group = None
         self.strength = None
         self.state = None
         self.id = None
-
 
 
 # TRANSLATION
@@ -149,8 +156,8 @@ def json_relationship_to_object(relationship):
     relationship_instance.strength = relationship["strength"]
     relationship_instance.subject = relationship["id_subject"]
     relationship_instance.object = relationship["id_object"]
-    relationship_instance.state = relationship["habitatstate"]
-    relationship_instance.type = relationship["relationshiptype"]
+    relationship_instance.state = int(relationship["habitatstate"])
+    relationship_instance.group = int(relationship["relationshiptype"])
     relationship_instance.id = relationship["id"]
     return relationship_instance
 
@@ -195,6 +202,8 @@ def boolean_parser(s):
 
 
 def union(object_list):
+    #TODO object list is the element object, grid is a attribute of and element object, scale by strength
+    # object_list = [i.grid / 100.0 * i.strength for i in object_list]
     object_list = [i / 100.0 for i in object_list]
     u = reduce(lambda x, y: x + y, object_list)
     u *= 100
@@ -204,7 +213,7 @@ def union(object_list):
 
 def intersection(object_list):
     object_list = [i / 100.0 for i in object_list]
-    return reduce(lambda x, y: x * y, object_list) * 100
+    return reduce(lambda x, y: x * y, object_list)
 
 
 def combination(element):
@@ -213,20 +222,33 @@ def combination(element):
     excl = []
 
     for state in element.relationships:
-        rel_types = []
-        for rel_type in state:
-            rel_types.append(union(rel_type))
+        groups = []
+        for group in element.relationships[state]:
+            # if relationship is negative
+            # element.relationships[state][group].type == 1:
+                # excl.append(union(element.relationships[state][group]))
+            # else:
+            groups.append(union(element.relationships[state][group]))
 
-        states.append(intersection(rel_types))
+        states.append(intersection(group))
 
+    print states
     habitat = union(states)
+    """
+        suitability of cell (probability of subject pressence) is inversely
+        proportional to the likelihood of negatively influencing conditions
+        scaled by the strength of the relationship.
+    """
 
-    for e in excl:
-        habitat *= (1 - e / 100.0)
+    # for i in excl:
+    #     habitat *= ((1 - i.grid / 100.0 * i.strength))
+    # if exlusionary conditions reduce subject probability to a value less than 0
+    # set to 0
+    # habitat[habitat < 0] = 0
 
     # scale by prevalence
-    habitat *= element.maxprob
-
+    habitat *= (element.maxprob)
+    habitat = np.floor(habitat + 0.5)
     # convert dtype to int
     habitat = habitat.astype(dtype=np.int16)
 

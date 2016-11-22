@@ -80,7 +80,7 @@ The type attribute will point relationships to the appropriate operation.
 
 The field will filled using old strength_types
 
-relationship_types:
+interaction types:
   required = 0      (object * weight)
   enhancing = 1     1 + (object * weight)
   attenuating = 2   1 - (object * weight)

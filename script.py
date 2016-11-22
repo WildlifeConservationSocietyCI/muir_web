@@ -2,6 +2,9 @@ import mw_settings as s
 import muirweb as mw
 import json
 from prettyprint import *
+import arcpy
+
+arcpy.env.overwriteOutput = True
 
 # load json db
 with open(s.MW_DB) as json_file:
@@ -35,12 +38,10 @@ for i in mw_db['relationships']:
     s.ELEMENTS[r.subject].relationships.append(r)
     if r.object not in s.ELEMENTS[r.subject].object_list:
         s.ELEMENTS[r.subject].object_list.append(r.object)
-s.ELEMENTS[112.2].check_status()
-s.ELEMENTS[112.2].show_attributes()
-print s.ELEMENTS[112.2].path
 
-s.ELEMENTS[644.0].show_attributes()
-s.ELEMENTS[644.0].check_requirements()
+# combination test
+
+
 # for id in elements:
 #     elements[id].set_grid()
 #     if elements[id].grid is None and elements[id].automap == True:
@@ -55,8 +56,6 @@ s.ELEMENTS[644.0].check_requirements()
 # print num_mapped
 
 
-# s.ELEMENTS[54.10].sort_relationships()
-# s.ELEMENTS[54.10].show_requirements()
 # map distribution
 
 # for id in s.ELEMENTS:

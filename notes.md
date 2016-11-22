@@ -26,14 +26,13 @@ collect and organize relationships by state and type
 *combination*
 
 *adjacency*
-    not sure if this can be done using numpy arrays
+    not sure if this can be easily implemented using numpy arrays
 
 *conditional*
 
-#Issues to Address
+# DATABASE UPDATE
 
 ## subset conditionals
-
 Problem - The conditional rules used to create subset elements are
 contained within the description of the element as strings. These strings are the
 literal arcpy Con statements which are then executed using eval(). There are numerous issues
@@ -49,13 +48,27 @@ Goals
 
 Problem - Relationship type ‘condition for (code = 5)’, receives a different treatment from defined types such as food, water, shelter, and reproductive resource. When stored in the habitats dictionary every relationship with code 5 is re-assigned a unique numeric code using a counter (variable: new_relationship_counter), which is incremented for each new instance of  relationship type of 5.
 
+## States and Groups
 
+States and groups are the two levels of set organization in our habitat model. An elements habitat is made up of one or more states, and each state is made up of one or more groups. A state is ..
+
+A groups are usesd to define the sets of requirements or conditions which make up the core habitat. example .. The members of a group are substituitable. Groups can also be used to  
+
+Interpreting and coding expert opinion and textual habitat descriptions
 
 ## strength
 is a value between 0 and 1 used to scale probability and consequently the effect of object rasters on the distribution of a subject.
 
-## relationship type (polarity)
-this flag indicates whether the relationship is a requirement or an attenuating influence.
+## interaction type
+This property indicates whether the relationship is a requirement, enhancing or attenuating influence.
 
-## strength and relationship type
-the goal of generalizing strengths and separating out the idea of positive and negative relationships clarifies the logic in the database and allows for more generalized functions on the mapping end of the application. 
+interaction types:
+
+|name         |id  | operation                  |
+|-------------|----|----------------------------|
+|required     |0   |(object * strength)         |
+|enhancing    |1   |(1 + (object * strength))   |
+|attenuating  |2   |(1 - (object * strength))   |
+
+## strength and interaction
+the goal of generalizing strengths and separating out the concept of positive and negative relationships clarifies the logic in the database and allows for more generalized functions on the mapping end of the application.
