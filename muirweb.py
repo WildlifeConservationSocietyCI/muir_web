@@ -4,6 +4,10 @@ import numpy as np
 import operator
 import arcpy
 import mw_settings as s
+import sys
+import gdal
+import os.path
+import raster_utils as ru
 
 # CLASSES
 
@@ -280,26 +284,64 @@ def subset(element):
     element.grid = arcpy.NumPyArrayToRaster(subset)
 
 
+# def adjacency(element):
+#     """
+#     spatial adjacency: e.g. 47.1 Eutrophic pond shore
+#     assumes:  1) presence of value to be less than in descrip
+#               2) only 1 object for subject to be adjacent to
+#     """
+#     # get object grid
+#     obj = element.relationship[0][10]
+#
+#     # calculate euclidean allocation up to maximum distance
+#     allocation = arcpy.sa.EucAllocation(in_source_data=obj,
+#                                         maximum_distance=element.description)
+#
+#     allocation = arcpy.RasterToNumPyArray(allocation)
+#     obj = arcpy.RasterToNumPyArray(obj)
+#
+#     # remove the cells containing the obj from array
+#     allocation[(obj >= 0)] = 0
+#
+#     # allocation convert null values to zero
+#     allocation = np.nan_to_num(allocation)
+#
+#     element.grid = arcpy.NumPyArrayToRaster(allocation)
+
 def adjacency(element):
-    """
-    spatial adjacency: e.g. 47.1 Eutrophic pond shore
-    assumes:  1) presence of value to be less than in descrip
-              2) only 1 object for subject to be adjacent to
-    """
-    # get object grid
+
+    # adjacency relationship parameters
     obj = element.relationship[0][10]
+    subject = element.id
+    maxdist = element.description
 
-    # calculate euclidean allocation up to maximum distance
-    allocation = arcpy.sa.EucAllocation(in_source_data=obj,
-                                        maximum_distance=element.description)
+    #gdal proximity parameters
+    format = 'GTiff'
+    options = ['MAXDIST=%s' % (maxdist / s.CELL_SIZE)]
+    src_filename = os.path.join(s.ROOT_DIR, '%s.tif' % obj)
+    dst_temp_filename = os.path.join(s.ROOT_DIR, '%s_temp.tif' % subject)
+    dst_filename = os.path.join(s.ROOT_DIR, '%s.tif' % subject)
 
-    allocation = arcpy.RasterToNumPyArray(allocation)
-    obj = arcpy.RasterToNumPyArray(obj)
+    driver = gdal.GetDriverByName('GTiff')
+    src_ds = gdal.Open(src_filename)
+    src_band = src_ds.GetRasterBand(1)
 
-    # remove the cells containing the obj from array
-    allocation[(obj >= 0)] = 0
+    dst_ds = driver.CreateCopy(dst_temp_filename, src_ds, 0)
+    dst_band = dst_ds.GetRasterBand(1)
 
-    # allocation convert null values to zero
-    allocation = np.nan_to_num(allocation)
+    gdal.ComputeProximity(src_band, dst_band, options)
 
-    element.grid = arcpy.NumPyArrayToRaster(allocation)
+    srcband = None
+    dstband = None
+    src_ds = None
+    dst_ds = None
+
+    # load product of proximity calculation replace all non-zero values with
+    # element maxprob
+
+    adj, geotransform, projection = ru.raster_to_array(dst_temp_filename, metadata=True)
+    adj[adj > 0] = element.maxprob
+    adj[adj <= 0] = 0
+
+    ru.array_to_raster(adj, dst_filename, geotransform=geotransform, projection=projection)
+    os.remove(dst_temp_filename)
