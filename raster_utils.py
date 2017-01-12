@@ -4,6 +4,9 @@ from osgeo.gdalconst import *
 from osgeo import gdal_array
 from osgeo import osr
 import linecache
+from wmi import WMI
+import os
+import muirweb as mw
 
 
 
@@ -30,7 +33,7 @@ def get_ascii_header(ascii_raster):
     return header
 
 
-def get_Geo_Info(FileName):
+def get_geo_info(FileName):
     sourceDS = gdal.Open(FileName, GA_ReadOnly)
     geoT = sourceDS.GetGeoTransform()
     projection = osr.SpatialReference()
@@ -40,21 +43,21 @@ def get_Geo_Info(FileName):
 def raster_to_array(in_raster, metadata=False):
     """
     convert raster to numpy array
+    metadata flag returns geotransform and projection GDAL objects
     :type in_raster object
     """
     # print in_ascii
     src_ds = gdal.Open(in_raster, GA_ReadOnly)
     array = gdal_array.DatasetReadAsArray(src_ds)
 
-    if metadata is False:
-        return array
+    if metadata is True:
+        geotransform, projection = get_geo_info(in_raster)
+        return array, geotransform, projection
 
     else:
-        geoT, projection = get_Geo_Info(in_raster)
-        return array, geoT, projection
+        return array
 
-
-def array_to_raster(array, out_raster, geotransform, projection, driver='GTiff', dtype=None):
+def ndarray_to_raster(array, out_raster, geotransform, projection, driver='GTiff', dtype=None):
     """
     write numpy array to raster
     :param array:
@@ -87,42 +90,39 @@ def array_to_raster(array, out_raster, geotransform, projection, driver='GTiff',
 
     # write to array to raster
     output_raster.GetRasterBand(1).WriteArray(array)
-#
-#
-# def array_to_ascii(out_ascii_path, array, header, fmt="%4i"):
-#     """
-#     write numpy array to ascii raster
-#     :rtype: object
-#     """
-#     out_asc = open(out_ascii_path, 'w')
-#     for attribute in header:
-#         out_asc.write(attribute)
-#
-#     np.savetxt(out_asc, array, fmt=fmt)
-#     out_asc.close()
-# from wmi import WMI
-# import os
-# import muirweb as mw
-#
-#
-# def get_memory():
-#     # Reports current memory usage
-#
-#     w = WMI('.')
-#     result = w.query("SELECT WorkingSet FROM Win32_PerfRawData_PerfProc_Process WHERE IDProcess=%d" % os.getpid())
-#     memory = int(result[0].WorkingSet) / 1000000.0
-#     print(memory, 'mb')
-#
-#
-# def scale_test(num_rasters, size):
-#     l = []
-#
-#     get_memory()
-#     for i in range(0,num_rasters):
-#         print('raster %s' % i)
-#         l.append(np.random.randint(0, 100, size, dtype=np.int16))
-#         get_memory()
-#     print('sum arrays')
-#     mw.union(l)
-#     get_memory()
-#     # sum(l)
+
+
+def ndarray_to_ascii(out_ascii_path, array, header, fmt="%4i"):
+    """
+    write numpy array to ascii raster
+    :rtype: object
+    """
+    out_asc = open(out_ascii_path, 'w')
+    for attribute in header:
+        out_asc.write(attribute)
+
+    np.savetxt(out_asc, array, fmt=fmt)
+    out_asc.close()
+
+
+def get_memory():
+    # Reports current memory usage
+
+    w = WMI('.')
+    result = w.query("SELECT WorkingSet FROM Win32_PerfRawData_PerfProc_Process WHERE IDProcess=%d" % os.getpid())
+    memory = int(result[0].WorkingSet) / 1000000.0
+    print(memory, 'mb')
+
+
+def scale_test(num_rasters, size):
+    l = []
+
+    get_memory()
+    for i in range(0,num_rasters):
+        print('raster %s' % i)
+        l.append(np.random.randint(0, 100, size, dtype=np.int16))
+        get_memory()
+    print('sum arrays')
+    mw.union(l)
+    get_memory()
+    # sum(l)
