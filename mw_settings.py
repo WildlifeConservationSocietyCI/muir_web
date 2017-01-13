@@ -11,3 +11,5 @@ DEBUG_MODE = ''
 MW_DB = r'F:\_data\Welikia\muir_web\test\muir_web_database_test.json'
 
 ELEMENTS = {}
+
+CELL_SIZE = 5
