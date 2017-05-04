@@ -4,6 +4,26 @@ Element
 
 Relationship
 
+# SPECIES LIST
+
+varify the all mannahatta species are in wobsadmin
+compare refferences
+
+file review LIST
+mannahatta_plant_summary2.0.mdb
+FIN.FinalBirds.11-Joost03-09-08.2.xlsha
+
+do we divide by bourogh
+
+develop rule set
+filter by introduced
+add in extinct
+
+add new species
+
+count observations
+reference to probability
+
 # SETUP METHODS
 
 *def read_db* [completed]
@@ -26,17 +46,13 @@ collect and organize relationships by state and type
 *combination*
 
 *adjacency*
-    not sure if this can be easily implemented using numpy arrays
 
 *conditional*
 
 # DATABASE UPDATE
 
 ## subset conditionals
-Problem - The conditional rules used to create subset elements are
-contained within the description of the element as strings. These strings are the
-literal arcpy Con statements which are then executed using eval(). There are numerous issues
-with the formatting and syntax of these statements, which make this portion of the script buggy.
+Problem - The conditional rules used to create subset elements are contained within the description of the element as strings. These strings are the literal arcpy Con statements which are then executed using eval(). There are numerous issues with the formatting and syntax of these statements, which make this portion of the script buggy.
 
 Goals
 
@@ -46,21 +62,24 @@ Goals
 
 ## relationship type and the conditional entity
 
-Problem - Relationship type ‘condition for (code = 5)’, receives a different treatment from defined types such as food, water, shelter, and reproductive resource. When stored in the habitats dictionary every relationship with code 5 is re-assigned a unique numeric code using a counter (variable: new_relationship_counter), which is incremented for each new instance of  relationship type of 5.
+Problem - Relationship type ‘condition for (code = 5)’, receives a different treatment from defined types such as food, water, shelter, and reproductive resource. When stored in the habitats dictionary every relationship with code 5 is re-assigned a unique numeric code using a counter (variable: new_relationship_counter), which is incremented for each new instance of  relationship type of 5. The changes proposed bellow accommodate all of the existing relationships under one set of mapping rules.
 
 ## States and Groups
 
-States and groups are the two levels of set organization in our habitat model. An elements habitat is made up of one or more states, and each state is made up of one or more groups. A state is ..
+States and groups are the two levels of organization in our habitat model. Habitat is made up of one or more states, and each state is made up of one or more groups. All elements will have at least one state. Multiple states are generally used when a species uses more than one distinct kinds of habitat (summer and winter grounds).
 
-A groups are usesd to define the sets of requirements or conditions which make up the core habitat. example .. The members of a group are substituitable. Groups can also be used to  
+A Group represents a set of conditions that are required to map the subject. In the case of wildlife they stand for categories like food, water, shelter or reproductive resources. Groups are also used to describe the conditions needed to map abiotic feature and ecological community. The members of a group are substitutable, however groups themselves are non-substitutable.
 
 Interpreting and coding expert opinion and textual habitat descriptions
 
-## strength
-is a value between 0 and 1 used to scale probability and consequently the effect of object rasters on the distribution of a subject.
+## strength and interaction
+the goal of the changes to the strength concept and the introduction of influence type and separating is to clarify the logic in the database and allows for more generalized functions on the mapping end of the application.
 
-## interaction type
-This property indicates whether the relationship is a requirement, enhancing or attenuating influence.
+### strength
+Strength is a scalar value between 0 and 1 used to modify the influence of an object, and consequently the distribution of a subject.
+
+### interaction type
+This property indicates whether the relationship is a requirement, enhancing or attenuating influence. The interaction type determines the arithemtic rules for combining an object with the other members of its group.
 
 interaction types:
 
@@ -70,5 +89,4 @@ interaction types:
 |enhancing    |1   |(1 + (object * strength))   |
 |attenuating  |2   |(1 - (object * strength))   |
 
-## strength and interaction
-the goal of generalizing strengths and separating out the concept of positive and negative relationships clarifies the logic in the database and allows for more generalized functions on the mapping end of the application.
+
