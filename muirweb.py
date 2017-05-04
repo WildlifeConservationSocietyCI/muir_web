@@ -112,7 +112,7 @@ class Element(object):
                 rel_dict[r.state][r.type] = []
 
             # append the object grid to list keyed by state and rel type
-            rel_dict[r.state][r.type].append(arcpy.RasterToNumPyArray(s.ELEMENTS[r.object].path))
+            rel_dict[r.state][r.type].append(ru.raster_to_array(s.ELEMENTS[r.object].path))
 
         self.relationships = rel_dict
 
@@ -293,7 +293,7 @@ def adjacency(element):
 
     # gdal proximity parameters
     format = 'GTiff'
-    options = ['MAXDIST=%s' % (maxdist / s.CELL_SIZE)]
+    distance = ['MAXDIST=%s' % (maxdist / s.CELL_SIZE)]
     src_filename = os.path.join(s.ROOT_DIR, '%s.tif' % obj)
     dst_temp_filename = os.path.join(s.ROOT_DIR, '%s_temp.tif' % subject)
     dst_filename = os.path.join(s.ROOT_DIR, '%s.tif' % subject)
@@ -305,7 +305,7 @@ def adjacency(element):
     dst_ds = driver.CreateCopy(dst_temp_filename, src_ds, 0)
     dst_band = dst_ds.GetRasterBand(1)
 
-    gdal.ComputeProximity(src_band, dst_band, options)
+    gdal.ComputeProximity(src_band, dst_band, distance)
 
     srcband = None
     dstband = None
