@@ -24,18 +24,19 @@
 -- DROP ATTRIBUTES THAT ARE ENTIRELY UNNECESSARY
 
 ALTER TABLE welikia_mw_element
-DROP COLUMN mw_path,
-DROP COLUMN mw_gridname,
-DROP COLUMN externallink,
-DROP COLUMN spatialsource,
-DROP COLUMN notes,
-DROP COLUMN lifetype;
+DROP COLUMN mw_path,  -- path conventions moved to script
+DROP COLUMN mw_gridname,  -- path conventions moved to script
+DROP COLUMN externallink,  -- in e_species
+DROP COLUMN spatialsource,  -- existing vals: 0,2. Obsolete.
+DROP COLUMN notes,  -- empty -- but good to have available
+DROP COLUMN lifetype;  -- not used anywhere
 
 ALTER TABLE welikia_mw_relationship
-DROP COLUMN explicit,
-DROP COLUMN spatialrelationship,
-DROP COLUMN spatialcomment;
+DROP COLUMN explicit;  -- = FALSE for all records; not used
+-- DROP COLUMN spatialrelationship,  -- ? true/false. Not used anywhere.
+-- DROP COLUMN spatialcomment;  -- ? 12 distinct vals, not used anywhere.
 
+-- ? check apps to be sure we're using taxon_id everywhere
 ALTER TABLE e_species DROP COLUMN mw_taxontype; -- constraint gets dropped as well
 
 -- ADD COLUMNS WE'LL BE NEEDING IN THE REFACTOR
@@ -106,6 +107,8 @@ CREATE TABLE e_likelihood
   name character varying(100) NOT NULL,
   CONSTRAINT e_likelihood_pkey PRIMARY KEY (id)
 );
+ALTER TABLE e_likelihood
+  OWNER TO mannahatta;
 
 -- create state table
 CREATE TABLE welikia_mw_state
@@ -156,11 +159,8 @@ ALTER TABLE welikia_mw_relationship ADD COLUMN interactiontype_id integer;
 -- drop habitatstate_id constraint
 ALTER TABLE welikia_mw_relationship DROP CONSTRAINT mw_relationship_mw_habitatstate;
 
-
-
-
--- relationship type: value is a key to welikia_relationshiptype
--- -- these changes can only be made after relationship group is added
+-- relationship type: value is a key to welikia_mw_relationshiptype
+-- ? these changes can only be made after relationship group is added
 -- ALTER TABLE welikia_mw_relationship ADD COLUMN relationship_type integer NOT NULL;
 
 

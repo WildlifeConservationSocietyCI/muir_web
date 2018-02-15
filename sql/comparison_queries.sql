@@ -3,6 +3,7 @@ SELECT es.mw_elementid,
        mwe.elementid,
        es.name_scientific,
        es.name_common,
+       es.mw_likelihood,
        l.name AS e_likelihood,
        mwp.name AS mw_probability
        FROM e_species AS es

@@ -1,15 +1,13 @@
-import os
-import arcpy
-
-arcpy.env.overwriteOutput = True
-
-ROOT_DIR = r'F:\_data\Welikia\muir_web\element_grids'
-LOG_DIR = ''
-
-DEBUG_MODE = ''
-
-MW_DB = r'F:\_data\Welikia\muir_web\test\muir_web_database_test.json'
-
-ELEMENTS = {}
-
+ROOT_DIR = r'C:\Users\kfisher\Documents\MuirWebs'
+GRID_DIR = r'%s\newgrids' % ROOT_DIR
+API = 'http://localhost:8080/api/v2/'
 CELL_SIZE = 5
+LOG_DIR = ''
+RASTER_DRIVER = 'GTiff'
+
+COMBINATION = 1
+SUBSET = 2
+ADJACENCY = 3
+STOP = 0
+
+params = {'format': 'json'}

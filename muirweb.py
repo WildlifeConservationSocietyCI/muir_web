@@ -1,16 +1,24 @@
+# Recommended: use a conda environment, make pycharm work with it
+# https://stackoverflow.com/a/47660948
+# install archook (via pip within the conda env) for access to arcpy
+# https://github.com/JamesRamm/archook
+
 import os
-from prettyprint import pp
-import numpy as np
-import operator
-import arcpy
-import mw_settings as s
-import sys
+# import operator
 import gdal
-import os.path
+import archook
+archook.get_arcpy()
+import arcpy
+import numpy as np
+import pprint as pp
+import mw_settings as s
 import raster_utils as ru
 
-# CLASSES
+elements = {}
+relationships = {}
 
+
+# CLASSES
 
 class Element(object):
     """
@@ -18,54 +26,86 @@ class Element(object):
     with the addition of grid and relationship attributes
     """
 
-    def __init__(self):
+    def __init__(self, obj):
+        for attr, value in obj.iteritems():
+            self[attr] = value
 
-        self.id = None
-        self.name = None
-        self.automap = None
-        self.maxprob = None
-        self.definition = None
-        self.description = None
+        # self.id = None
+        # self.name = None
+        # self.automap = None
+        # self.maxprob = None
+        # self.definition = None
+        # self.description = None
+
         self.relationships = []
         self.object_list = []
 
-        self.path = id_path(self.id)
-        self.status = False
-        self.grid = None
+    def __setitem__(self, key, value):
+        self.__dict__[key] = value
 
-    def show_attributes(self):
+    @property
+    def id_path(self):
         """
-
-        :return:
+        convert element id into grid path
+        :return: path
         """
-        print 'id: %s \n' % self.id, \
-              'name: %s \n' % self.name,\
-              'description: %s \n' % self.description, \
-              'definition: %s \n' % self.definition, \
-              'maxprob: %s \n' % self.maxprob,\
-              'object list: %s \n' % self.object_list, \
-              'automap: %s\n' % self.automap, \
-              'status: %s' % self.status
+        elementid = str(self.elementid).replace('.', '_')
+        path = os.path.join(s.GRID_DIR, '%s.tif' % elementid)
+        return path
 
-    def check_status(self):
+    @property
+    def status(self):
         """
         if grid exists status == True, this method differs from set_grid()
         in that it does not load the raster into memory
-        :return:
+        :return: boolean
         """
-        if os.path.isfile(self.path):
-            self.status = True
+        if os.path.isfile(self.id_path):
+            return True
+        return False
 
-    def set_grid(self):
+    # def set_grid(self):
+    #     """
+    #     if exists assign to grid attribute
+    #     :return:
+    #     """
+    #     if os.path.isfile(self.id_path):
+    #         self.grid = 'raster_to_ndarray(self.id_path) or arcpy.Raster(self.id_path)'
+
+    # def show_attributes(self):
+    #     print 'id: %s \n' % self.id, \
+    #           'name: %s \n' % self.name,\
+    #           'description: %s \n' % self.description, \
+    #           'definition: %s \n' % self.definition, \
+    #           'maxprob: %s \n' % self.maxprob,\
+    #           'object list: %s \n' % self.object_list, \
+    #           'automap: %s\n' % self.automap, \
+    #           'status: %s' % self.status
+
+    def set_relationships(self):
         """
-        if exists assign to grid attribute
-        :return:
+        group objects according to relationship state and group
         """
-        if os.path.isfile(self.path):
-            self.grid = 'raster_to_numpy(self.path) or arcpy.Raster(self.path)'
+        rel_dict = {}
+        subject_rels = [r for r in relationships if r.id_subject == self.elementid]
+
+        for r in subject_rels:
+            if r.state not in rel_dict.keys():
+                rel_dict[r.state] = {}
+            if r.group not in rel_dict[r.state].keys():
+                rel_dict[r.state][r.group] = []
+
+            # append the object grid to list keyed by state and rel type
+            # rel_dict[r.state][r.group].append(ru.raster_to_ndarray(elements[r.id_object].id_path))
+            rel_dict[r.state][r.group].append(elements[r.id_object])
+
+            if r['id_object'] not in elements[r['id_subject']].object_list:
+                elements[r['id_subject']].object_list.append(elements[r['id_object']])
+
+        self.relationships = rel_dict
 
     def show_relationships(self):
-        print self.id, self.name, 'requirements:'
+        print self.elementid, self.name, 'requirements:'
         rel_dict = {}
 
         for r in self.relationships:
@@ -74,139 +114,143 @@ class Element(object):
             if r.group not in rel_dict[r.state].keys():
                 rel_dict[r.state][r.group] = []
 
-            rel_dict[r.state][r.group].append('%s\t%s' % (r.object, s.ELEMENTS[r.object].name))
+            rel_dict[r.state][r.group].append('%s\t%s' % (r.id_object, elements[r.id_object].name))
 
-        pp(rel_dict)
+        pp.pprint(rel_dict)
 
-    def check_requirements(self):
+    def has_requirements(self):
         """
         check the status of objects in objects list, if all required grids exist
         return True, else return False
-        :return:
+        :return: boolean
         """
         ro_false = []
         for o in self.object_list:
-            s.ELEMENTS[o].check_status()
-            print s.ELEMENTS[o].status
-            if s.ELEMENTS[o].status is False:
+            if elements[o].status is False:
                 ro_false.append(o)
 
         if len(ro_false) == 0:
-            print 's.logging.info(all required objects exist'
+            print 'all required objects exist for %s' % self.name
             return True
         else:
-            print 's.logging.info(objects %s missing, unable to map %s' % (ro_false, self.name)
+            print 'objects %s missing, unable to map %s' % (ro_false, self.name)
             return False
 
-    def set_relationship_grids(self):
-        """
-        sort and group object grids according to state and relationship type
-        :return:
-        """
-        rel_dict = {}
 
-        for r in self.relationships:
-            if r.state not in rel_dict.keys():
-                rel_dict[r.state] = {}
-            if r.type not in rel_dict[r.state].keys():
-                rel_dict[r.state][r.type] = []
-
-            # append the object grid to list keyed by state and rel type
-            rel_dict[r.state][r.type].append(ru.raster_to_array(s.ELEMENTS[r.object].path))
-
-        self.relationships = rel_dict
+# class Relationship(object):
+#     """
+#     an object that mirrors a single relationship record from the mw_database
+#     """
+#
+#     def __init__(self):
+#         self.subject = None
+#         self.object = None
+#         self.group = None
+#         self.strength = None
+#         self.state = None
+#         self.id = None
 
 
-class Relationship(object):
-    """
-    an object that mirrors a single relationship record from the mw_database
-    """
+# UTILITIES
 
-    def __init__(self):
-        self.subject = None
-        self.object = None
-        self.group = None
-        self.strength = None
-        self.state = None
-        self.id = None
+def api_headers(client=False):
+    # If we need to authorize to get to the API, this is where we'd do it; 'Authorization': 'Bearer %s' % access_token
+    if client:
+        pass
+    headers = {}
+    return {'params': s.params, 'headers': headers}
+
+
+def calc_grid(elementid):
+    subject = elements[elementid]
+    print('Mapping %s [%s]' % (subject.elementid, subject.name))
+    if subject.has_requirements():
+        try:
+            if subject.mw_definition == s.COMBINATION:
+                combination(subject)
+            elif subject.mw_definition == s.SUBSET:
+                subset(subject)
+            elif subject.mw_definition == s.ADJACENCY:
+                adjacency(subject)
+            return True
+        except:
+            return False
+    else:
+        return False
+
+
+# def num(string):
+#     try:
+#         return int(string)
+#     except ValueError:
+#         return s
+
+
+# def boolean_parser(string):
+#     ops = {'==': operator.eq,
+#            '!=': operator.ne,
+#            '<=': operator.le,
+#            'or': operator.or_,
+#            'and': operator.and_}
+#
+#     con_expression = []
+#
+#     for sym in string.split(string):
+#         if sym in ops:
+#             con_expression.append(ops[sym])
+#         else:
+#             con_expression.append(num(sym))
+#
+#     return ''.join(con_expression)
+
+
+# store relationship records in their respective subject elements
+# def attach_objects(relationships):
+#     for r in relationships:
+#         elements[r['id_subject']].relationships.append(r)
+#         if r['id_object'] not in elements[r['id_subject']].object_list:
+#             elements[r['id_subject']].object_list.append(r['id_object'])
 
 
 # TRANSLATION
 
-def json_element_to_object(element):
-    """
-    convert json element object into mw.element instance
-    :param element:
-    :return: mw.element
-    """
-    element_instance = Element()
-    element_instance.id = element['elementid']
-    element_instance.name = element['scientificname']
-    element_instance.maxprob = element['maxprob']
-    element_instance.definition = element['definition']
-    element_instance.description = element['description']
-    element_instance.automap = element['automap']
-    element_instance.path = id_path(element_instance.id)
-    return element_instance
-
-
-def json_relationship_to_object(relationship):
-    """
-    convert json relationship object into mw.relationship instance
-    :param relationship:
-    :return: mw.relationship
-    """
-    relationship_instance = Relationship()
-    relationship_instance.strength = relationship["strength"]
-    relationship_instance.subject = relationship["id_subject"]
-    relationship_instance.object = relationship["id_object"]
-    relationship_instance.state = int(relationship["habitatstate"])
-    relationship_instance.group = int(relationship["relationshiptype"])
-    relationship_instance.id = relationship["id"]
-    return relationship_instance
-
-
-def id_path(element_id):
-    """
-    convert element id into grid path
-    :param element_id:
-    :return:path
-    """
-    element_id = str(element_id).replace('.', '_')
-    path = os.path.join(s.ROOT_DIR, '%s.tif' % element_id)
-    return path
+# def json_element_to_object(element):
+#     """
+#     convert json element object into mw.element instance
+#     :param element:
+#     :return: mw.element
+#     """
+#     element_instance = Element()
+#     element_instance.id = element['elementid']
+#     element_instance.name = element['scientificname']
+#     element_instance.maxprob = element['maxprob']
+#     element_instance.definition = element['definition']
+#     element_instance.description = element['description']
+#     element_instance.automap = element['automap']
+#     element_instance.path = id_path(element_instance.id)
+#     return element_instance
+#
+#
+# def json_relationship_to_object(relationship):
+#     """
+#     convert json relationship object into mw.relationship instance
+#     :param relationship:
+#     :return: mw.relationship
+#     """
+#     relationship_instance = Relationship()
+#     relationship_instance.strength = relationship["strength"]
+#     relationship_instance.subject = relationship["id_subject"]
+#     relationship_instance.object = relationship["id_object"]
+#     relationship_instance.state = int(relationship["habitatstate"])
+#     relationship_instance.group = int(relationship["relationshiptype"])
+#     relationship_instance.id = relationship["id"]
+#     return relationship_instance
 
 
 # MAPPING METHODS
 
-
-def num(s):
-    try:
-        return int(s)
-    except ValueError:
-        return s
-
-
-def boolean_parser(s):
-    ops = {'==': operator.eq,
-           '!=': operator.ne,
-           '<=': operator.le,
-           'or': operator.or_,
-           'and': operator.and_}
-
-    con_expresison = []
-
-    for sym in str.split(s):
-        if sym in ops:
-            con_expresison.append(ops[sym])
-        else:
-            con_expresison.append(num(sym))
-
-    return con_expresison
-
-
 def union(object_list):
-    #TODO object list is the element object, grid is a attribute of and element object, scale by strength
+    # TODO object list is the element object, grid is a attribute of an element object, scale by strength
     # object_list = [i.grid / 100.0 * i.strength for i in object_list]
     object_list = [i / 100.0 for i in object_list]
     u = reduce(lambda x, y: x + y, object_list)
@@ -221,20 +265,25 @@ def intersection(object_list):
 
 
 def combination(element):
+    element.set_relationships()
 
     states = []
-    excl = []
+    # excl = []
 
     for state in element.relationships:
         groups = []
         for group in element.relationships[state]:
+            rasters = []
+            for obj in element.relationships[state][group]:
+                rasters.append(ru.raster_to_ndarray(obj.id_path))
+
             # if relationship is negative
             # element.relationships[state][group].type == 1:
                 # excl.append(union(element.relationships[state][group]))
             # else:
-            groups.append(union(element.relationships[state][group]))
+            groups.append(union(rasters))
 
-        states.append(intersection(group))
+        states.append(intersection(groups))
 
     print states
     habitat = union(states)
@@ -251,16 +300,14 @@ def combination(element):
     # habitat[habitat < 0] = 0
 
     # scale by prevalence
-    habitat *= (element.maxprob)
+    habitat *= element.maxprob
     habitat = np.floor(habitat + 0.5)
     # convert dtype to int
     habitat = habitat.astype(dtype=np.int16)
 
-    # convert to np.array to arcpy raster object
-    element.grid = arcpy.NumPyArrayToRaster(habitat)
-
     # save raster
-    element.grid.save(element.path)
+    grid = arcpy.NumPyArrayToRaster(habitat)
+    grid.save(element.id_path)
 
 
 def subset(element):
@@ -271,53 +318,50 @@ def subset(element):
     returns a subjet of an array using conditional indexing
     """
 
+    element.set_relationships()
     obj = element.object_list[0]
 
-    obj = arcpy.RasterToNumPyArray(obj)
-    shape = obj.shape
+    obj_grid = arcpy.RasterToNumPyArray(obj.id_path)
+    shape = obj_grid.shape
 
     present = np.full(shape=shape, fill_value=1, dtype=np.int16)
     absent = np.full(shape=shape, fill_value=0, dtype=np.int16)
-    subset = np.where(eval(element.description), present, absent)
-    subset *= element.maxprob
+    subset_array = np.where(eval(element.description), present, absent)
+    subset_array *= element.maxprob
 
-    element.grid = arcpy.NumPyArrayToRaster(subset)
+    grid = arcpy.NumPyArrayToRaster(subset_array)
+    grid.save(element.id_path)
 
 
 def adjacency(element):
+    element.set_relationships()
 
     # adjacency relationship parameters
-    obj = element.relationship[0][10]
-    subject = element.id
+    obj = element.relationship[0][10]  # ? why the 11th group of the first state?
+    subject = element
     maxdist = element.description
 
     # gdal proximity parameters
-    format = 'GTiff'
     distance = ['MAXDIST=%s' % (maxdist / s.CELL_SIZE)]
-    src_filename = os.path.join(s.ROOT_DIR, '%s.tif' % obj)
-    dst_temp_filename = os.path.join(s.ROOT_DIR, '%s_temp.tif' % subject)
-    dst_filename = os.path.join(s.ROOT_DIR, '%s.tif' % subject)
+    filename, ext = os.path.splitext(subject.id_path)
+    dst_temp_filename = '%s_temp%s' % (filename, ext)
 
-    driver = gdal.GetDriverByName('GTiff')
-    src_ds = gdal.Open(src_filename)
+    drivername = gdal.GetDriverByName(s.RASTER_DRIVER)
+    src_ds = gdal.Open(obj.id_path)
     src_band = src_ds.GetRasterBand(1)
 
-    dst_ds = driver.CreateCopy(dst_temp_filename, src_ds, 0)
+    dst_ds = drivername.CreateCopy(dst_temp_filename, src_ds, 0)
     dst_band = dst_ds.GetRasterBand(1)
 
     gdal.ComputeProximity(src_band, dst_band, distance)
 
-    srcband = None
-    dstband = None
-    src_ds = None
-    dst_ds = None
-
     # load product of proximity calculation replace all non-zero values with
     # element maxprob
-    adj, geotransform, projection = ru.raster_to_array(dst_temp_filename, metadata=True)
+    # TODO: Do we need to save temp file?
+    adj, geotransform, projection = ru.raster_to_ndarray(dst_temp_filename, metadata=True)
     adj[adj > 0] = element.maxprob
     adj[adj <= 0] = 0
 
     # save ndarray to tif
-    ru.ndarray_to_raster(adj, dst_filename, geotransform=geotransform, projection=projection)
+    ru.ndarray_to_raster(adj, subject.id_path, geotransform=geotransform, projection=projection)
     os.remove(dst_temp_filename)

@@ -4,10 +4,9 @@ from osgeo.gdalconst import *
 from osgeo import gdal_array
 from osgeo import osr
 import linecache
-from wmi import WMI
-import os
-import muirweb as mw
-
+# from wmi import WMI
+# import os
+# import muirweb as mw
 
 
 def get_ascii_header(ascii_raster):
@@ -40,11 +39,13 @@ def get_geo_info(FileName):
     projection.ImportFromWkt(sourceDS.GetProjectionRef())
     return geoT, projection
 
-def raster_to_array(in_raster, metadata=False):
+
+def raster_to_ndarray(in_raster, metadata=False):
     """
     convert raster to numpy array
     metadata flag returns geotransform and projection GDAL objects
-    :type in_raster object
+    :param in_raster object
+    :param metadata whether to return metadata with array
     """
     # print in_ascii
     src_ds = gdal.Open(in_raster, GA_ReadOnly)
@@ -56,6 +57,7 @@ def raster_to_array(in_raster, metadata=False):
 
     else:
         return array
+
 
 def ndarray_to_raster(array, out_raster, geotransform, projection, driver='GTiff', dtype=None):
     """
@@ -105,24 +107,24 @@ def ndarray_to_ascii(out_ascii_path, array, header, fmt="%4i"):
     out_asc.close()
 
 
-def get_memory():
-    # Reports current memory usage
-
-    w = WMI('.')
-    result = w.query("SELECT WorkingSet FROM Win32_PerfRawData_PerfProc_Process WHERE IDProcess=%d" % os.getpid())
-    memory = int(result[0].WorkingSet) / 1000000.0
-    print(memory, 'mb')
-
-
-def scale_test(num_rasters, size):
-    l = []
-
-    get_memory()
-    for i in range(0,num_rasters):
-        print('raster %s' % i)
-        l.append(np.random.randint(0, 100, size, dtype=np.int16))
-        get_memory()
-    print('sum arrays')
-    mw.union(l)
-    get_memory()
-    # sum(l)
+# def get_memory():
+#     # Reports current memory usage
+#
+#     w = WMI('.')
+#     result = w.query("SELECT WorkingSet FROM Win32_PerfRawData_PerfProc_Process WHERE IDProcess=%d" % os.getpid())
+#     memory = int(result[0].WorkingSet) / 1000000.0
+#     print(memory, 'mb')
+#
+#
+# def scale_test(num_rasters, size):
+#     l = []
+#
+#     get_memory()
+#     for i in range(0,num_rasters):
+#         print('raster %s' % i)
+#         l.append(np.random.randint(0, 100, size, dtype=np.int16))
+#         get_memory()
+#     print('sum arrays')
+#     mw.union(l)
+#     get_memory()
+#     # sum(l)

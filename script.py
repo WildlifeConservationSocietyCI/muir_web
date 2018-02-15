@@ -1,72 +1,43 @@
+import requests
+import pprint as pp
 import mw_settings as s
 import muirweb as mw
-import json
-from prettyprint import *
-import arcpy
-
-arcpy.env.overwriteOutput = True
-
-# load json db
-with open(s.MW_DB) as json_file:
-    mw_db = json.load(json_file)
 
 
-# Definitions
-COMBINATION = 1
-SUBSET = 2
-ADJACENCY = 6
-CONDITIONAL = 0
+client = requests.session()
+headers = mw.api_headers(client)
 
-num_to_map = {1: 0,
-              2: 0,
-              3: 0,
-              6: 0}
+if headers:
+    # aggregation_types = client.get('%smw_aggregation_types/' % s.API, **headers).json()
+    # classes = client.get('%smw_classes/' % s.API, **headers).json()
+    # definition_types = client.get('%smw_definition_types/' % s.API, **headers).json()
+    # frequency_types = client.get('%smw_frequency_types/' % s.API, **headers).json()
+    # groups = client.get('%smw_groups/' % s.API, **headers).json()
+    # interaction_types = client.get('%smw_interaction_types/' % s.API, **headers).json()
+    # probabilities = client.get('%smw_probabilities/' % s.API, **headers).json()
+    # relationship_types = client.get('%smw_relationship_types/' % s.API, **headers).json()
+    # states = client.get('%smw_states/' % s.API, **headers).json()
+    # strength_types = client.get('%smw_strength_types/' % s.API, **headers).json()
+    # taxon_types = client.get('%smw_taxon_types/' % s.API, **headers).json()
 
-num_mapped = 0
+    mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
+    mw.elements = {e['elementid']: mw.Element(e) for e in client.get('%smw_elements/' % s.API, **headers).json()}
 
+    pp.pprint(mw.elements[670.00].__dict__)
 
-# convert json objects to mw.element objects and key by element id
-for i in mw_db['elements']:
-    # print i
-    e = mw.json_element_to_object(i)
-    s.ELEMENTS[e.id] = e
+    # See if ordering mw.elements would decrease the # of required runs
+    def map_muirweb(run, initally_mapped):
+        print('Starting run %s through elements' % run)
+        mapped = list(initally_mapped)
+        for elementid in mw.elements:
+            if mw.elements[elementid].automap is True and mw.elements[elementid].status is False:
+                mw.elements[elementid].show_relationships()
+                if mw.calc_grid(elementid):
+                    mapped.append(elementid)
+        if len(mapped) != initally_mapped:
+            print('Mapped: %s' % list(set(mapped) - set(initally_mapped)))
+            map_muirweb(run + 1, mapped)
+        else:
+            print('No additional elements mapped.')
 
-# store relationship records in their respective subject elements
-for i in mw_db['relationships']:
-    # print i
-    r = mw.json_relationship_to_object(i)
-    s.ELEMENTS[r.subject].relationships.append(r)
-    if r.object not in s.ELEMENTS[r.subject].object_list:
-        s.ELEMENTS[r.subject].object_list.append(r.object)
-
-# combination test
-
-
-# for id in elements:
-#     elements[id].set_grid()
-#     if elements[id].grid is None and elements[id].automap == True:
-#         if elements[id].definition in num_to_map:
-#             num_to_map[elements[id].definition] += 1
-#         else:
-#             num_to_map[elements[id].definition] = 1
-#     else:
-#         num_mapped += 1
-
-# pp(num_to_map)
-# print num_mapped
-
-
-# map distribution
-
-# for id in s.ELEMENTS:
-#
-#     if s.ELEMENTS[id].status == 0:
-#
-#         if s.ELEMENTS[id].definition == COMBINATION:
-#             mw.combination(s.ELEMENTS[id])
-#
-#         elif s.ELEMENTS[id].definition == SUBSET:
-#             mw.subset(s.ELEMENTS[id])
-#
-#         elif s.ELEMENTS[id].definition == ADJACENCY:
-#             mw.adjacency(s.ELEMENTS[id])
+    map_muirweb(1, [])

@@ -65,9 +65,9 @@ UPDATE welikia_mw_element AS e
 
 
 -- INSERT VALUES INTO INTERACTION TYPE TABLE
-INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('required', '(object * weight)');
-INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('enhancing', '(1 + (object * weight))');
-INSERT INTO welikia_mw_interactiontype (name, operation) VALUES ('exclusionary', '(1 - (object * weight))');
+INSERT INTO welikia_mw_interactiontype (id, name, operation) VALUES (1, 'required', '(object * weight)');
+INSERT INTO welikia_mw_interactiontype (id, name, operation) VALUES (2, 'enhancing', '(1 + (object * weight))');
+INSERT INTO welikia_mw_interactiontype (id, name, operation) VALUES (3, 'exclusionary', '(1 - (object * weight))');
 
 /*
 "relationship_type" was previously used to group similar kinds of
@@ -78,12 +78,12 @@ subject. Enhancing and attenuating types increase and decrease the
 suitability of "core habitat" through scaling multiplication.
 The type attribute will point relationships to the appropriate operation.
 
-The field will filled using old strength_types
+The field will be filled using old strength_types
 
 interaction types:
-  required = 0      (object * weight)
-  enhancing = 1     1 + (object * weight)
-  attenuating = 2   1 - (object * weight)
+  required = 1      (object * weight)
+  enhancing = 2     1 + (object * weight)
+  attenuating = 3   1 - (object * weight)
 */
 
 
@@ -216,11 +216,11 @@ UPDATE welikia_mw_relationship AS r
       OR r.strengthtype_id = 6; -- subcentral
 
 UPDATE welikia_mw_relationship AS r
-   SET interactiontype_id = 1   -- requirement
+   SET interactiontype_id = 1   -- requirement ? > 2
    WHERE r.strengthtype_id = 1;  -- enhancing
 
 UPDATE welikia_mw_relationship AS r
-   SET interactiontype_id = 2   -- exculsionary
+   SET interactiontype_id = 2   -- exclusionary - enhancing? ? > 3
    WHERE r.strengthtype_id = 2  -- attenuating
       OR r.strengthtype_id = 4; -- exclusionary
 
@@ -260,6 +260,9 @@ UPDATE welikia_mw_relationship
     OR strengthtype_id = 5; -- central
 
 -- E LIKELIHOOD
+-- Explanation: see https://docs.google.com/document/d/1wRJ1BOJCvcNkMMjhKTGxrcloi4q28Jpxqx1IUCwZ0g8/edit
+-- Replace existing e_species.mw_likelihood with proper lookup
+-- This does NOT remove welikia_mw_element.probability -> welikia_mw_probability -- but maybe we should?
 -- fill lookup table
 INSERT INTO e_likelihood (id, name)
 VALUES (1, 'likely');
