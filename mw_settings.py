@@ -1,5 +1,5 @@
-ROOT_DIR = r'C:\Users\kfisher\Documents\MuirWebs'
-GRID_DIR = r'%s\newgrids' % ROOT_DIR
+ROOT_DIR = r'C:\Users\kfisher\Documents\welikia\muirweb'
+GRID_DIR = r'%s\grids' % ROOT_DIR
 API = 'http://localhost:8080/api/v2/'
 CELL_SIZE = 5
 LOG_DIR = ''

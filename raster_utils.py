@@ -4,6 +4,7 @@ from osgeo.gdalconst import *
 from osgeo import gdal_array
 from osgeo import osr
 import linecache
+import mw_settings as s
 # from wmi import WMI
 # import os
 # import muirweb as mw
@@ -32,66 +33,63 @@ def get_ascii_header(ascii_raster):
     return header
 
 
-def get_geo_info(FileName):
-    sourceDS = gdal.Open(FileName, GA_ReadOnly)
-    geoT = sourceDS.GetGeoTransform()
-    projection = osr.SpatialReference()
-    projection.ImportFromWkt(sourceDS.GetProjectionRef())
-    return geoT, projection
+def get_geo_info(ds):
+    geotransform = ds.GetGeoTransform()
+    # projection = osr.SpatialReference()
+    # projection.ImportFromWkt(sourceDS.GetProjectionRef())
+    projection = ds.GetProjection()
+    return geotransform, projection
 
 
-def raster_to_ndarray(in_raster, metadata=False):
+def raster_to_ndarray(in_raster, metadata=True):
     """
     convert raster to numpy array
     metadata flag returns geotransform and projection GDAL objects
     :param in_raster object
     :param metadata whether to return metadata with array
     """
-    # print in_ascii
+    # array = gdal_array.LoadFile(in_raster)
+    # return_array = array
+    # return_array[array == -3.40282e+038] = np.nan
+    # return return_array
+
     src_ds = gdal.Open(in_raster, GA_ReadOnly)
+    nodata = src_ds.GetRasterBand(1).GetNoDataValue()
     array = gdal_array.DatasetReadAsArray(src_ds)
+    # array[array == nodata] = np.nan
+    array = np.ma.masked_equal(array, nodata)
 
-    if metadata is True:
-        geotransform, projection = get_geo_info(in_raster)
-        return array, geotransform, projection
+    geotransform, projection = get_geo_info(src_ds)
+    src_ds = None
+    return array, geotransform, projection, nodata
 
-    else:
-        return array
+    # if metadata is True:
+    #     geotransform, projection = get_geo_info(src_ds)
+    #     return array, geotransform, projection, nodata
+    # else:
+    #     return array
 
 
-def ndarray_to_raster(array, out_raster, geotransform, projection, driver='GTiff', dtype=None):
-    """
-    write numpy array to raster
-    :param array:
-    :param out_raster:
-    :param geotransform:
-    :param projection:
-    :param driver:
-    :param dtype:
-    :return:
-    """
-
-    # get array dimensions
+# def ndarray_to_raster(array, out_raster, geotransform, projection, driver='GTiff', dtype=None):
+def ndarray_to_raster(array, out_raster):
+    # gdal_array.SaveArray(array, out_raster, driver, prototype)
     y_size, x_size = array.shape
+    dtype = gdal_array.NumericTypeCodeToGDALTypeCode(array.dtype)
+    output_raster = gdal.GetDriverByName(s.RASTER_DRIVER).Create(out_raster['file'], x_size, y_size, 1, dtype)
 
-    # map numpy dtype to GDAL dtype if default arg is used
-    if dtype is None:
-        dtype = gdal_array.NumericTypeCodeToGDALTypeCode(array.dtype)
-        print(dtype)
-
-    output_raster = gdal.GetDriverByName(driver).Create(out_raster, x_size, y_size, 1, dtype)
-
-    # set coordinates
-    output_raster.SetGeoTransform(geotransform)
-
-    # set projection
+    output_raster.SetGeoTransform(out_raster['geotransform'])
     srs = osr.SpatialReference()
-    epsg = int(projection.GetAttrValue("AUTHORITY", 1))
-    srs.ImportFromEPSG(epsg)
+    # epsg = int(projection.GetAttrValue("AUTHORITY", 1))
+    # srs.ImportFromEPSG(epsg)
+    srs.ImportFromWkt(out_raster['projection'])
     output_raster.SetProjection(srs.ExportToWkt())
 
     # write to array to raster
     output_raster.GetRasterBand(1).WriteArray(array)
+    output_raster.GetRasterBand(1).SetNoDataValue(out_raster['nodata'])
+
+    out_raster = None
+    ourput_raster = None
 
 
 def ndarray_to_ascii(out_ascii_path, array, header, fmt="%4i"):

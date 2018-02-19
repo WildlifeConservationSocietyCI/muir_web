@@ -99,6 +99,14 @@ CREATE TRIGGER mwelement_name_trigger_update
   FOR EACH ROW
   EXECUTE PROCEDURE public.update_mwelement_name_trigger();
 
+DROP TRIGGER IF EXISTS searchtext_index_update ON public.e_species;
+CREATE TRIGGER searchtext_index_update
+    BEFORE INSERT OR UPDATE
+    ON public.e_species
+    FOR EACH ROW
+    EXECUTE PROCEDURE tsvector_update_trigger('searchtext_index', 'pg_catalog.english', 'name_family', 'name_genus', 'name_species', 'name_common');
+
+
 -- ADD NEW TABLES
 
 CREATE TABLE e_likelihood
