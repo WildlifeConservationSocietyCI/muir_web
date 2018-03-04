@@ -21,6 +21,13 @@
 -- CREATE extension postgis_topology;
 -- Then switch to newly created mannahatta2409 db as mannahatta user and restore muirweb_prerefactor.backup in this dir.
 
+UPDATE welikia_mw_element
+SET automap = FALSE
+WHERE automap IS NULL;
+UPDATE welikia_mw_element
+SET automap = TRUE
+WHERE automap = FALSE AND mw_path != ''; -- 88 rows
+
 -- DROP ATTRIBUTES THAT ARE ENTIRELY UNNECESSARY
 
 ALTER TABLE welikia_mw_element
@@ -28,8 +35,12 @@ DROP COLUMN mw_path,  -- path conventions moved to script
 DROP COLUMN mw_gridname,  -- path conventions moved to script
 DROP COLUMN externallink,  -- in e_species
 DROP COLUMN spatialsource,  -- existing vals: 0,2. Obsolete.
-DROP COLUMN notes,  -- empty -- but good to have available
+--DROP COLUMN notes,  -- empty -- but good to have available
+-- see comparison queries; may want to edit e_species.mw_likelihood before doing this
+DROP COLUMN probability, -- dropping in favor of e_species.historical_likelihood
 DROP COLUMN lifetype;  -- not used anywhere
+
+DROP TABLE welikia_mw_probability;
 
 ALTER TABLE welikia_mw_relationship
 DROP COLUMN explicit;  -- = FALSE for all records; not used
@@ -42,13 +53,18 @@ ALTER TABLE e_species DROP COLUMN mw_taxontype; -- constraint gets dropped as we
 -- ADD COLUMNS WE'LL BE NEEDING IN THE REFACTOR
 
 ALTER TABLE welikia_mw_element ADD COLUMN species_id integer;
-ALTER TABLE welikia_mw_element ADD COLUMN subset_rule text;
+ALTER TABLE welikia_mw_element ADD COLUMN subset_rule character varying(255) NOT NULL DEFAULT '';
 ALTER TABLE welikia_mw_element ADD COLUMN adjacency_rule integer;
 ALTER TABLE welikia_mw_element ADD COLUMN description text NOT NULL DEFAULT '';
+ALTER TABLE welikia_mw_element ADD COLUMN native_units boolean NOT NULL DEFAULT FALSE;
+-- ALTER TABLE welikia_mw_element RENAME automap TO spatial;
 -- These two refer to an outmoded Access table of 20 references that we need to integrate into wobsadmin_reference.
 -- Leaving these here and clearly marking until we can come back and do that.
 ALTER TABLE welikia_mw_element ADD COLUMN access_description_reference_id integer;
 ALTER TABLE welikia_mw_element RENAME referencenumber TO access_reference_id;
+-- elementclass isn't used anywhere
+ALTER TABLE welikia_mw_element RENAME elementclass TO access_elementclass;
+ALTER TABLE welikia_mw_element ALTER COLUMN access_elementclass DROP NOT NULL;
 
 -- ALTER TABLE e_species ADD COLUMN welikia_mw_element_id integer;
 ALTER TABLE e_species ADD COLUMN name_genus character varying(255) NOT NULL DEFAULT '';
@@ -118,12 +134,26 @@ CREATE TABLE e_likelihood
 ALTER TABLE e_likelihood
   OWNER TO mannahatta;
 
--- create state table
+CREATE TABLE welikia_mw_state_label
+(
+  id serial NOT NULL,
+  name character varying(100) NOT NULL DEFAULT '',
+  CONSTRAINT welikia_mw_state_label_pkey PRIMARY KEY (id),
+  CONSTRAINT welikia_mw_state_label_name_uq UNIQUE (name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_state_label
+  OWNER TO mannahatta;
+
 CREATE TABLE welikia_mw_state
 (
   id serial NOT NULL,
+  label_id integer REFERENCES welikia_mw_state_label,
   legacy_habitatstate_id integer,
   CONSTRAINT welikia_mw_state_pkey PRIMARY KEY (id)
+--   FOREIGN KEY (label_id) REFERENCES welikia_mw_state_label (id) ON UPDATE NO ACTION ON DELETE NO ACTION
 )
 WITH (
   OIDS=FALSE
@@ -131,12 +161,27 @@ WITH (
 ALTER TABLE welikia_mw_state
   OWNER TO mannahatta;
 
--- create group table
+CREATE TABLE welikia_mw_group_label
+(
+  id serial NOT NULL,
+  name character varying(100) NOT NULL DEFAULT '',
+  notes text NOT NULL DEFAULT '',
+  CONSTRAINT welikia_mw_group_label_pkey PRIMARY KEY (id),
+  CONSTRAINT welikia_mw_group_label_name_uq UNIQUE (name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_group_label
+  OWNER TO mannahatta;
+
 CREATE TABLE welikia_mw_group
 (
   id serial NOT NULL,
+  label_id integer REFERENCES welikia_mw_group_label,
   legacy_relationshiptype_id integer,
   CONSTRAINT welikia_mw_group_pkey PRIMARY KEY (id)
+--   FOREIGN KEY (label_id) REFERENCES welikia_mw_group_label (id) ON UPDATE NO ACTION ON DELETE NO ACTION
 )
 WITH (
   OIDS=FALSE
@@ -166,10 +211,6 @@ ALTER TABLE welikia_mw_relationship ADD COLUMN interactiontype_id integer;
 
 -- drop habitatstate_id constraint
 ALTER TABLE welikia_mw_relationship DROP CONSTRAINT mw_relationship_mw_habitatstate;
-
--- relationship type: value is a key to welikia_mw_relationshiptype
--- ? these changes can only be made after relationship group is added
--- ALTER TABLE welikia_mw_relationship ADD COLUMN relationship_type integer NOT NULL;
 
 
 -- What follows is for the model inheritance approach we've abandoned for the time being.

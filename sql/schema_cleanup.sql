@@ -1,6 +1,8 @@
-﻿-- Keep unique constraint: elementid must exist in e_species AND be unique within welikia_mw_element
-ALTER TABLE e_species DROP CONSTRAINT wobsadmin_species_mw_elementid_key;
-ALTER TABLE e_species DROP COLUMN mw_elementid;
+﻿-- These two lines we should do only after we've gone through all species where mw_elementid < 10000 (why aren't
+-- these elements?) and > 10000 (added via wobsadmin to species, but elements not yet created)
+-- ALTER TABLE e_species DROP CONSTRAINT wobsadmin_species_mw_elementid_key;
+-- ALTER TABLE e_species DROP COLUMN mw_elementid;
+-- Keep unique constraint: elementid must exist in e_species AND be unique within welikia_mw_element
 -- FK to species but field can be null
 ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_e_species_fkey FOREIGN KEY (species_id)
   REFERENCES e_species (ide_species) ON UPDATE NO ACTION ON DELETE NO ACTION;
@@ -355,11 +357,11 @@ ALTER TABLE welikia_mw_element DROP COLUMN description_id;
 ALTER TABLE welikia_mw_element DROP COLUMN writtendefinition;
 DROP TABLE welikia_mw_element_description;
 
-DROP TABLE welikia_mw_habitatstate;
-
 -- welikia_mw_relationship clean up
 ALTER TABLE welikia_mw_relationship DROP COLUMN habitatstate_id;
 ALTER TABLE welikia_mw_relationship DROP COLUMN relationshiptype_id;
+DROP TABLE welikia_mw_habitatstate;
+DROP TABLE welikia_mw_relationshiptype;
 
 -- add constraints to welikia_mw_relationship
 ALTER TABLE welikia_mw_relationship

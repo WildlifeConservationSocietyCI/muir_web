@@ -5,9 +5,13 @@ CELL_SIZE = 5
 LOG_DIR = ''
 RASTER_DRIVER = 'GTiff'
 
+STOP = 0
 COMBINATION = 1
 SUBSET = 2
 ADJACENCY = 3
-STOP = 0
+
+REQUIRED = 1
+ENHANCING = 2
+ATTENUATING = 3
 
 params = {'format': 'json'}

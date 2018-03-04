@@ -1,5 +1,4 @@
 import requests
-import pprint as pp
 import mw_settings as s
 import muirweb as mw
 
@@ -8,17 +7,12 @@ client = requests.session()
 headers = mw.api_headers(client)
 
 if headers:
-    # aggregation_types = client.get('%smw_aggregation_types/' % s.API, **headers).json()
-    # classes = client.get('%smw_classes/' % s.API, **headers).json()
-    # definition_types = client.get('%smw_definition_types/' % s.API, **headers).json()
+    definition_types = client.get('%smw_definition_types/' % s.API, **headers).json()
     mw.frequency_types = client.get('%smw_frequency_types/' % s.API, **headers).json()
-    # groups = client.get('%smw_groups/' % s.API, **headers).json()
-    # interaction_types = client.get('%smw_interaction_types/' % s.API, **headers).json()
-    # probabilities = client.get('%smw_probabilities/' % s.API, **headers).json()
-    # relationship_types = client.get('%smw_relationship_types/' % s.API, **headers).json()
     # states = client.get('%smw_states/' % s.API, **headers).json()
-    # strength_types = client.get('%smw_strength_types/' % s.API, **headers).json()
-    # taxon_types = client.get('%smw_taxon_types/' % s.API, **headers).json()
+    # groups = client.get('%smw_groups/' % s.API, **headers).json()
+    interaction_types = client.get('%smw_interaction_types/' % s.API, **headers).json()
+    mw.strength_types = client.get('%smw_strength_types/' % s.API, **headers).json()
 
     # testing data:
     test_elements = [
@@ -31,8 +25,8 @@ if headers:
             "description": "",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 0,
-            "automap": True,
+            "access_elementclass": 0,
+            "spatial": True,
             "mw_definition": 1,
             "mw_class": 2,
             "mw_taxontype": 0,
@@ -50,8 +44,8 @@ if headers:
             "description": "",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 0,
-            "automap": True,
+            "access_elementclass": 0,
+            "spatial": True,
             "mw_definition": 1,
             "mw_class": 2,
             "mw_taxontype": 0,
@@ -69,8 +63,8 @@ if headers:
             "description": "",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 0,
-            "automap": True,
+            "access_elementclass": 0,
+            "spatial": True,
             "mw_definition": 1,
             "mw_class": 2,
             "mw_taxontype": 0,
@@ -88,8 +82,8 @@ if headers:
             "description": "",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 0,
-            "automap": True,
+            "access_elementclass": 0,
+            "spatial": True,
             "mw_definition": 1,
             "mw_class": 2,
             "mw_taxontype": 0,
@@ -107,8 +101,8 @@ if headers:
             "description": "400",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 8,
-            "automap": True,
+            "access_elementclass": 8,
+            "spatial": True,
             "mw_definition": 3,
             "mw_class": 30,
             "mw_taxontype": 1,
@@ -126,8 +120,8 @@ if headers:
             "description": "rock crevices will be found where the ground is rocky and the rocks are large",
             "access_description_reference_id": 0,
             "access_reference_id": 0,
-            "elementclass": 0,
-            "automap": True,
+            "access_elementclass": 0,
+            "spatial": True,
             "mw_definition": 1,
             "mw_class": 1,  #
             "mw_taxontype": 1,
@@ -135,6 +129,45 @@ if headers:
             "probability": 0,  #
             "aggregationtype": 0,  #
             "frequencytype": 99
+        },
+        {
+            "id": 32,
+            "elementid": "31.10",
+            "name": "Gently sloping slopes",
+            "subset_rule": "logical_and([31.00] >= 2, [31.00] <= 5)",
+            # "subset_rule": "con([Grid] >= 2 and [Grid] <= 5,MaxProb,0)",
+            "adjacency_rule": None,
+            "description": "gently sloping",
+            "access_description_reference_id": 0,
+            "access_reference_id": 0,
+            "access_elementclass": 7,
+            "spatial": True,
+            "mw_definition": 2,
+            "mw_class": 1,
+            "mw_taxontype": 1,
+            "species": None,
+            "probability": 0,
+            "aggregationtype": 2,
+            "frequencytype": 30
+        },
+        {
+            "id": 31,
+            "elementid": "31.00",
+            "name": "Slope (Flux in elevation)",
+            "subset_rule": None,
+            "adjacency_rule": None,
+            "description": "slope is a function of elevation (literally the change in elevation)",
+            "access_description_reference_id": 0,
+            "access_reference_id": 0,
+            "access_elementclass": 6,
+            "spatial": False,
+            "mw_definition": 1,
+            "mw_class": 1,
+            "mw_taxontype": 1,
+            "species": None,
+            "probability": 0,
+            "aggregationtype": 0,
+            "frequencytype": 30
         },
     ]
 
@@ -144,7 +177,7 @@ if headers:
             "notes": "",
             "id_subject": '225.00',
             "id_object": '100.0',
-            "strengthtype": 1,
+            "strengthtype": 3,
             "state": 503,
             "group": 885,
             "interactiontype": 1
@@ -154,10 +187,10 @@ if headers:
             "notes": "",
             "id_subject": '225.00',
             "id_object": '101.10',
-            "strengthtype": 1,
+            "strengthtype": 2,
             "state": 503,
             "group": 886,
-            "interactiontype": 1
+            "interactiontype": 2
         },
         {
             "id": 5213,
@@ -167,7 +200,7 @@ if headers:
             "strengthtype": 1,
             "state": 504,
             "group": 887,
-            "interactiontype": 1
+            "interactiontype": 3
         },
         {
             "id": 9279,
@@ -178,6 +211,16 @@ if headers:
             "state": 2050,
             "group": 3574,
             "interactiontype": 1
+        },
+        {
+            "id": 9091,
+            "id_subject": '31.10',
+            "id_object": '31.00',
+            "notes": "",
+            "strengthtype": 3,
+            "state": 2051,
+            "group": 3575,
+            "interactiontype": 1,
         },
     ]
 
@@ -192,7 +235,7 @@ if headers:
         print('Starting run %s through elements' % run)
         mapped = list(initally_mapped)
         for elementid in mw.elements:
-            if mw.elements[elementid].automap is True and mw.elements[elementid].status is False:
+            if mw.elements[elementid].spatial is True and mw.elements[elementid].status is False:
                 print('attempting to map %s' % elementid)
                 mw.elements[elementid].show_relationships()
                 if mw.calc_grid(elementid):
