@@ -63,8 +63,7 @@ needed to map abiotic features and ecological communities. The members of a grou
 using `union`); groups themselves are non-substitutable (multiplied together using `intersection`).
 
 ### strength and interaction
-The goal of the changes to the strength concept and the introduction of interaction type and separating is to clarify 
-the logic in the database and allow for more generalized functions on the mapping end of the application.
+In the existing model (Mannahatta) relationship *strength* determines both the type of interaction (positive or negative), and the magnitude of the effect. The proposed changes to the strength concept and the introduction of a seperate property named *interaction* type, separates the logic of these two attibutes in the database and allows for more generalized functions on the mapping end of the application.
 
 #### strength
 Strength is a scalar value between 0 and 100 used to modify the influence of an object, and consequently the 
