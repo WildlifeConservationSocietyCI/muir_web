@@ -1,14 +1,17 @@
 # Recommended: use a conda environment, make pycharm work with it
 # https://stackoverflow.com/a/47660948
 
-import os
-import gdal
+import logging
 import re
 import pprint as pp
 import mw_settings as s
 import raster_utils as ru
+from os.path import join, isfile
+from osgeo import gdal
 from numpy import *  # not doing the usual import numpy as np because we want to keep subset_rule evaluation simple
 
+gdal.UseExceptions()
+seterr(divide='raise', over='print', under='print', invalid='raise')
 elements = {}
 relationships = {}
 frequency_types = []
@@ -20,7 +23,8 @@ strength_types = []
 class Element(object):
 
     def __init__(self, obj):
-        for attr, value in obj.iteritems():
+        # for attr, value in obj.iteritems():
+        for attr, value in obj.items():
             self[attr] = value
 
         self.relationships = {}
@@ -35,12 +39,12 @@ class Element(object):
     @property
     def id_path(self):
         elementid = id_str(self.elementid)
-        path = os.path.join(s.GRID_DIR, '%s.tif' % elementid)
+        path = join(s.GRID_DIR, '%s.tif' % elementid)
         return path
 
     @property
     def status(self):
-        if os.path.isfile(self.id_path):
+        if isfile(self.id_path):
             return True
         return False
 
@@ -51,7 +55,7 @@ class Element(object):
 
         for r in subject_rels:
             state = r['state']
-            group = r['group']
+            group = r['relationshiptype']
             if state not in rel_dict.keys():
                 rel_dict[state] = {}
             if group not in rel_dict[state].keys():
@@ -71,8 +75,8 @@ class Element(object):
 
     def show_relationships(self):
         self.set_relationships()
-        print(' '.join([str(self.elementid), self.name, 'requirements:']))
-        pp.pprint(self.relationships)
+        logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
+        logging.info('\n%s' % pp.pformat(self.relationships))
 
     def has_requirements(self):
         """
@@ -86,10 +90,10 @@ class Element(object):
                 ro_false.append(o)
 
         if len(ro_false) == 0:
-            print('All required objects exist for %s' % self.name)
+            logging.info('All required objects exist for %s' % self.name)
             return True
         else:
-            print('Unable to map %s; objects missing: %s' % (self.name, ro_false))
+            logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
             return False
 
 
@@ -105,7 +109,7 @@ def api_headers(client=False):
 
 def calc_grid(elementid):
     subject = elements[elementid]
-    print('Mapping %s [%s]' % (subject.elementid, subject.name))
+    logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
     if subject.has_requirements():
         try:
             if subject.mw_definition == s.COMBINATION:
@@ -115,7 +119,8 @@ def calc_grid(elementid):
             elif subject.mw_definition == s.ADJACENCY:
                 adjacency(subject)
             return True
-        except:
+        except Exception as e:
+            logging.exception('exception!')
             return False
     else:
         return False
@@ -256,12 +261,16 @@ def subset(element):
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
             if idx == 0:
                 # present/absent need both proper mask AND nodata vals in that mask
+                # this relies on nodata being assigned the lowest possible val
                 present = ma.copy(arrays[obj.elementid])
-                present[present >= 0] = 1
+                present[present > nodata] = 1
                 absent = ma.copy(arrays[obj.elementid])
-                absent[present >= 0] = 0
+                absent[absent > nodata] = 0
 
         subset_array = ma.where(eval(calc_expression), present, absent)
+        present = None
+        absent = None
+        # subset_array *= get_maxprob(element)
         subset_array = subset_array * get_maxprob(element)
 
         out_raster = {
@@ -270,6 +279,7 @@ def subset(element):
             'projection': projection,
             'nodata': nodata
         }
+        # ru.ndarray_to_raster(subset_array.astype(int16), out_raster)
         ru.ndarray_to_raster(round_int(subset_array), out_raster)
 
 
@@ -289,7 +299,7 @@ def adjacency(element):
     dst_ds = gdal.GetDriverByName(s.RASTER_DRIVER).CreateCopy(element.id_path, src_ds, 0)
     dst_band = dst_ds.GetRasterBand(1)
 
-    # print(options)
+    # logging.info(options)
     gdal.ComputeProximity(src_band, dst_band, options=options)
 
     src_ds = None

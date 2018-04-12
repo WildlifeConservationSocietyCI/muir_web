@@ -333,14 +333,19 @@ ALTER TABLE e_species DROP COLUMN description;  -- used in only one species
 
 -- Do some django updating to work with these changes
 UPDATE django_content_type SET app_label = 'mannahatta2409' WHERE model LIKE 'species';
-SELECT setval('public.django_migrations_id_seq', 24, true);
-SELECT setval('public.django_content_type_id_seq', 131, true);
-SELECT setval('public.auth_permission_id_seq', 393, true);
 DROP TABLE mailchimp_reciever;
 DROP TABLE mailchimp_campaign;
 DROP TABLE mailchimp_queue;
 DELETE FROM django_migrations WHERE app='mannahatta2409';
 DELETE FROM django_migrations WHERE app = 'wobsadmin';
+SELECT setval(pg_get_serial_sequence('welikia_mw_element', 'id'), MAX(id)) FROM welikia_mw_element;
+SELECT setval(pg_get_serial_sequence('welikia_mw_relationship', 'id'), MAX(id)) FROM welikia_mw_relationship;
+SELECT setval(pg_get_serial_sequence('django_migrations', 'id'), MAX(id)) FROM django_migrations;
+SELECT setval(pg_get_serial_sequence('django_content_type', 'id'), MAX(id)) FROM django_content_type;
+SELECT setval(pg_get_serial_sequence('auth_permission', 'id'), MAX(id)) FROM auth_permission;
+-- SELECT setval('public.django_migrations_id_seq', 24, true);
+-- SELECT setval('public.django_content_type_id_seq', 131, true);
+-- SELECT setval('public.auth_permission_id_seq', 393, true);
 
 
 -- Remove description from FTS trigger

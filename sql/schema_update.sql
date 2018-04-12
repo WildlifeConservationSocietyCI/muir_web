@@ -62,6 +62,7 @@ ALTER TABLE welikia_mw_element ADD COLUMN native_units boolean NOT NULL DEFAULT 
 -- Leaving these here and clearly marking until we can come back and do that.
 ALTER TABLE welikia_mw_element ADD COLUMN access_description_reference_id integer;
 ALTER TABLE welikia_mw_element RENAME referencenumber TO access_reference_id;
+ALTER TABLE welikia_mw_element ALTER COLUMN access_reference_id DROP NOT NULL;
 -- elementclass isn't used anywhere
 ALTER TABLE welikia_mw_element RENAME elementclass TO access_elementclass;
 ALTER TABLE welikia_mw_element ALTER COLUMN access_elementclass DROP NOT NULL;
