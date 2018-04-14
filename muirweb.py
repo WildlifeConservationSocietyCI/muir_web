@@ -3,6 +3,7 @@
 
 import logging
 import re
+import functools
 import pprint as pp
 import mw_settings as s
 import raster_utils as ru
@@ -23,7 +24,6 @@ strength_types = []
 class Element(object):
 
     def __init__(self, obj):
-        # for attr, value in obj.iteritems():
         for attr, value in obj.items():
             self[attr] = value
 
@@ -63,7 +63,7 @@ class Element(object):
 
             # append the object element and its relationship to list keyed by state and group
             rel_dict[state][group].append({
-                'id': r['id'], 
+                'id': r['id'],
                 'obj': elements[r['id_object']],
                 'rel': r,
             })
@@ -157,14 +157,19 @@ def parse_calc(expression):
 # MAPPING METHODS
 
 def round_int(arr):
-    return floor(arr + 0.5).astype(int16)
+    newarr = floor(arr + 0.5).astype(int16)
+    newarr.set_fill_value(s.NODATA_INT16)
+    print(newarr)
+    print(newarr.mask)
+    print(newarr.fill_value)
+    return newarr
 
 
 def union(object_list):
     if len(object_list) == 1:
         return object_list[0]
     # object_list = [i / 100.0 for i in object_list]
-    u = reduce(lambda x, y: x + y, object_list)
+    u = functools.reduce(lambda x, y: x + y, object_list)
     # u *= 100
     u[u > 100] = 100
     return u
@@ -174,7 +179,7 @@ def intersection(object_list):
     if len(object_list) == 1:
         return object_list[0]
     object_list = [i / 100.0 for i in object_list]
-    u = reduce(lambda x, y: x * y, object_list)
+    u = functools.reduce(lambda x, y: x * y, object_list)
     u *= 100
     u[u > 100] = 100
     return u
@@ -231,7 +236,7 @@ def combination(element):
         'file': element.id_path,
         'geotransform': geotransform,
         'projection': projection,
-        'nodata': nodata
+        'nodata': s.NODATA_INT16
     }
     ru.ndarray_to_raster(round_int(habitat), out_raster)
 
@@ -258,7 +263,14 @@ def subset(element):
         calc_expression = parse_calc(element.subset_rule)
 
         for idx, obj in enumerate(element.object_list):
+            # geotransform, projection, nodata set to those of last element in object_list
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
+            logging.info(obj.elementid)
+            logging.info(arrays[obj.elementid])
+            logging.info(arrays[obj.elementid][5000][5000])
+            logging.info(arrays[obj.elementid].dtype)
+            logging.info(arrays[obj.elementid].fill_value)
+            logging.info(nodata)
             if idx == 0:
                 # present/absent need both proper mask AND nodata vals in that mask
                 # this relies on nodata being assigned the lowest possible val
@@ -277,10 +289,20 @@ def subset(element):
             'file': element.id_path,
             'geotransform': geotransform,
             'projection': projection,
+            'nodata': s.NODATA_INT16
+        }
+        out_raster_test = {
+            'file': element.id_path,
+            'geotransform': geotransform,
+            'projection': projection,
             'nodata': nodata
         }
-        # ru.ndarray_to_raster(subset_array.astype(int16), out_raster)
-        ru.ndarray_to_raster(round_int(subset_array), out_raster)
+        # print(subset_array)
+        # print(subset_array.fill_value)
+        # print(nodata)
+        # print(np.issubdtype(subset_array.dtype, integer))
+        ru.ndarray_to_raster(subset_array, out_raster_test)
+#        ru.ndarray_to_raster(round_int(subset_array), out_raster)
 
 
 def adjacency(element):
