@@ -8,19 +8,32 @@ code of other apps (such as Visionmaker Django models) that depend on these sche
 
 ## INSTALLATION
 
-Requirements (note that arcpy is NOT a requirement):
-- gdal
-- numpy
-- requests
-- pprint
-
 Recommended: use a conda environment, and make pycharm work with it 
-https://stackoverflow.com/a/47660948
+https://stackoverflow.com/a/47660948   
+To create such an environment:
+  
+    conda create -n py36_64 python=3.6
+    activate
+    conda install -c conda-forge gdal
+    conda install requests=2.18.4
+
+Code should run under either Python 2 or 3, 32-bit or 64-bit. But for large (> ~10000 rows and columns) rasters (such
+ as those of Welikia rendered at 5m resolution), 64-bit (and a machine with enough RAM) will be necessary to avoid 
+ memory errors. The version numbers below are what worked for me under a Miniconda 64-bit Python 3.6 environment.
+
+Requirements (note that arcpy is NOT a requirement):
+- gdal [2.2.4]
+- numpy [1.14.2]
+- requests [2.18.4]
 
 For the full (recursive) spatial computation process (i.e. having already done the database and associated extrinsic 
-application refactoring), clone this repository, make sure you have access to the API, and 
-edit the settings in mw_settings.py. Then run script.py. Other uses of the mapping functions with respect to the 
-API, such as calculation of a single Muir Web element, are similarly easy to script.
+application refactoring), clone this repository, make sure you have access to the API, create a directory with any 
+existing Muir Web element grids to start with, and edit the settings in mw_settings.py. Then run script.py. Other 
+uses of the mapping functions with respect to the API, such as calculation of a single Muir Web element, are 
+similarly easy to script.
+
+Note: the current version of the spatial computation code does not handle floating-point rasters. For this version, 
+all input rasters must be signed 16-bit integer.
 
 ## DB REFACTOR
 
@@ -36,7 +49,7 @@ strengths/interactions (see below).
 2. value_update.sql
 3. schema_cleanup.sql
 4. description_fix.sql
-5. Commit code for Visionmaker (including wobsadmin), welikia.org, and welikia.net
+5. Commit and deploy code for Visionmaker (including wobsadmin), welikia.org, and welikia.net
 6. Visionmaker: delete migrations from mannahatta2409 and wobsadmin migrations folders
 7. Visionmaker: python manage.py makemigrations mannahatta2409
 8. Visionmaker: python manage.py migrate --fake mannahatta2409
@@ -75,11 +88,11 @@ type determines the arithmetic rules for combining an object with the other memb
 
 Interaction types:
 
-|name         |id  | operation                  |
-|-------------|----|----------------------------|
-|required     |0   |(object * strength)         |
-|enhancing    |1   |(1 + (object * strength))   |
-|attenuating  |2   |(1 - (object * strength))   |
+|name           |id    | operation                    |
+|:-------------:|:----:|:----------------------------:|
+|required       |0     |(object * strength)           |
+|enhancing      |1     |(1 + (object * strength))     |
+|attenuating    |2     |(1 - (object * strength))     |
 
 ## SPATIAL METHODS
 All Muir Web element spatial data outputs are masked 16-bit-integer tifs with values from 0 to 100 representing the 

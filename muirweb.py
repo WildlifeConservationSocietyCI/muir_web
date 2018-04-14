@@ -3,6 +3,7 @@
 
 import logging
 import re
+import functools
 import pprint as pp
 import mw_settings as s
 import raster_utils as ru
@@ -23,7 +24,6 @@ strength_types = []
 class Element(object):
 
     def __init__(self, obj):
-        # for attr, value in obj.iteritems():
         for attr, value in obj.items():
             self[attr] = value
 
@@ -164,7 +164,7 @@ def union(object_list):
     if len(object_list) == 1:
         return object_list[0]
     # object_list = [i / 100.0 for i in object_list]
-    u = reduce(lambda x, y: x + y, object_list)
+    u = functools.reduce(lambda x, y: x + y, object_list)
     # u *= 100
     u[u > 100] = 100
     return u
@@ -174,7 +174,7 @@ def intersection(object_list):
     if len(object_list) == 1:
         return object_list[0]
     object_list = [i / 100.0 for i in object_list]
-    u = reduce(lambda x, y: x * y, object_list)
+    u = functools.reduce(lambda x, y: x * y, object_list)
     u *= 100
     u[u > 100] = 100
     return u
@@ -258,6 +258,7 @@ def subset(element):
         calc_expression = parse_calc(element.subset_rule)
 
         for idx, obj in enumerate(element.object_list):
+            # geotransform, projection, nodata set to those of last element in object_list
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
             if idx == 0:
                 # present/absent need both proper mask AND nodata vals in that mask
@@ -279,7 +280,6 @@ def subset(element):
             'projection': projection,
             'nodata': nodata
         }
-        # ru.ndarray_to_raster(subset_array.astype(int16), out_raster)
         ru.ndarray_to_raster(round_int(subset_array), out_raster)
 
 
