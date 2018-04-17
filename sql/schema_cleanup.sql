@@ -1,15 +1,6 @@
-﻿-- These two lines we should do only after we've gone through all species where mw_elementid < 10000 (why aren't
--- these elements?) and > 10000 (added via wobsadmin to species, but elements not yet created)
--- ALTER TABLE e_species DROP CONSTRAINT wobsadmin_species_mw_elementid_key;
--- ALTER TABLE e_species DROP COLUMN mw_elementid;
--- Keep unique constraint: elementid must exist in e_species AND be unique within welikia_mw_element
--- FK to species but field can be null
-ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_e_species_fkey FOREIGN KEY (species_id)
+﻿ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_e_species_fkey FOREIGN KEY (species_id)
   REFERENCES e_species (ide_species) ON UPDATE NO ACTION ON DELETE NO ACTION;
 ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_species_id_key UNIQUE (species_id);
--- ALTER TABLE e_species ADD CONSTRAINT e_species_elementid_key UNIQUE (welikia_mw_element_id);
--- ALTER TABLE e_species ADD CONSTRAINT e_species_mw_elementid_fk_welikia_mw_element_elementid
---   FOREIGN KEY (welikia_mw_element_id) REFERENCES welikia_mw_element (elementid) ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ALTER TABLE e_species
   ADD CONSTRAINT e_species_historical_likelihood_fkey FOREIGN KEY (historical_likelihood)
@@ -343,9 +334,6 @@ SELECT setval(pg_get_serial_sequence('welikia_mw_relationship', 'id'), MAX(id)) 
 SELECT setval(pg_get_serial_sequence('django_migrations', 'id'), MAX(id)) FROM django_migrations;
 SELECT setval(pg_get_serial_sequence('django_content_type', 'id'), MAX(id)) FROM django_content_type;
 SELECT setval(pg_get_serial_sequence('auth_permission', 'id'), MAX(id)) FROM auth_permission;
--- SELECT setval('public.django_migrations_id_seq', 24, true);
--- SELECT setval('public.django_content_type_id_seq', 131, true);
--- SELECT setval('public.auth_permission_id_seq', 393, true);
 
 
 -- Remove description from FTS trigger

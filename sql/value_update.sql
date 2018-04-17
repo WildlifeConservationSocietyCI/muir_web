@@ -226,8 +226,7 @@ SELECT update_relationships();
 
 
 -- move new habitat state to state_id column
-UPDATE welikia_mw_relationship
-SET state_id = habitatstate_id;
+UPDATE welikia_mw_relationship SET state_id = habitatstate_id;
 
 -- REFACTOR STRENGTH AND INTERACTION TYPES
 /*

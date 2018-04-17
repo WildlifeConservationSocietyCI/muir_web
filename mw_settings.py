@@ -1,4 +1,5 @@
 ROOT_DIR = r'C:\Users\kfisher\Documents\welikia\muirweb'
+# ROOT_DIR = r'\\walrus\GIS1\Cities_and_Conservation_data\Welikia\MuirWeb'
 GRID_DIR = r'%s\grids' % ROOT_DIR
 API = 'http://localhost:8080/api/v2/'
 CELL_SIZE = 5

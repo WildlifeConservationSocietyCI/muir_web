@@ -5,9 +5,6 @@ from osgeo.gdalconst import *
 from osgeo import gdal_array
 from osgeo import osr
 import mw_settings as s
-# import os
-# from wmi import WMI
-# import muirweb as mw
 
 
 def get_geo_info(ds):
@@ -25,7 +22,7 @@ def raster_to_ndarray(in_raster):
     geotransform, projection, nodata = get_geo_info(src_ds)
     array = gdal_array.DatasetReadAsArray(src_ds)
     array = np.ma.masked_values(array, nodata)
-    # array = np.ma.masked_equal(array, nodata)
+    # array = np.ma.masked_equal(array, nodata)  # int only
 
     src_ds = None
     return array, geotransform, projection, nodata

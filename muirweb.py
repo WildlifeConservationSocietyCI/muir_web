@@ -1,13 +1,10 @@
-# Recommended: use a conda environment, make pycharm work with it
-# https://stackoverflow.com/a/47660948
-
 import logging
 import re
 import functools
 import pprint as pp
 import mw_settings as s
 import raster_utils as ru
-from os.path import join, isfile
+from os.path import join, isfile, splitext
 from osgeo import gdal
 from numpy import *  # not doing the usual import numpy as np because we want to keep subset_rule evaluation simple
 
@@ -225,7 +222,7 @@ def combination(element):
     habitat = intersection([habitat] + habitat_mods)
 
     # scale by prevalence
-    habitat *= get_maxprob(element) / 100
+    habitat = habitat * get_maxprob(element) / 100
 
     out_raster = {
         'file': element.id_path,
@@ -287,20 +284,49 @@ def adjacency(element):
     element.set_relationships()
 
     obj = get_object(element)
-    # http://arijolma.org/Geo-GDAL/1.6/class_geo_1_1_g_d_a_l.html#afa9a3fc598089b58eb23445b8c1c88b4
-    options = ['MAXDIST=%s' % (element.adjacency_rule / s.CELL_SIZE),
-               'VALUES=%s' % ','.join(str(i) for i in range(1, 101)),
-               'FIXED_BUF_VAL=%s' % get_maxprob(element),
-               'USE_INPUT_NODATA=YES',
-               ]
+    if obj is not None:
+        # http://www.gdal.org/gdal_proximity.html
+        # http://arijolma.org/Geo-GDAL/1.6/class_geo_1_1_g_d_a_l.html#afa9a3fc598089b58eb23445b8c1c88b4
+        options = ['MAXDIST=%s' % (element.adjacency_rule / s.CELL_SIZE),
+                   'VALUES=%s' % ','.join(str(i) for i in range(1, 101)),
+                   'FIXED_BUF_VAL=%s' % get_maxprob(element),
+                   'USE_INPUT_NODATA=YES',
+                   ]
 
-    src_ds = gdal.Open(obj.id_path)
-    src_band = src_ds.GetRasterBand(1)
-    dst_ds = gdal.GetDriverByName(s.RASTER_DRIVER).CreateCopy(element.id_path, src_ds, 0)
-    dst_band = dst_ds.GetRasterBand(1)
+        src_ds = gdal.Open(obj.id_path)
+        src_band = src_ds.GetRasterBand(1)
+        temp_path = '%s_temp%s' % (splitext(element.id_path)[0], splitext(element.id_path)[1])
+        temp_ds = gdal.GetDriverByName(s.RASTER_DRIVER).CreateCopy(temp_path, src_ds, 0)
+        temp_band = temp_ds.GetRasterBand(1)
 
-    # logging.info(options)
-    gdal.ComputeProximity(src_band, dst_band, options=options)
+        gdal.ComputeProximity(src_band, temp_band, options=options)
+        # temp_band.FlushCache()
+        src_ds = None
+        temp_ds = None
 
-    src_ds = None
-    dst_ds = None
+        # unmask, preserve non-nodata from source object as 0, then remask
+        # TODO: see if we can avoid writing temp path to disk and then reopening
+        dst_arr, geotransform, projection, nodata = ru.raster_to_ndarray(temp_path)
+        dst_arr = array(dst_arr.data)
+        obj_arr, g, p, n = ru.raster_to_ndarray(obj.id_path)
+        obj_arr = array(obj_arr.data)
+        dst_arr = where(logical_and(obj_arr != nodata, dst_arr == nodata), 0, dst_arr)
+        dst_arr = ma.masked_values(dst_arr, nodata)
+
+        out_raster = {
+            'file': element.id_path,
+            'geotransform': geotransform,
+            'projection': projection,
+            'nodata': nodata
+        }
+        ru.ndarray_to_raster(dst_arr, out_raster)
+
+        dst_arr = None
+        obj_arr = None
+        try:
+            os.remove(temp_path)
+        except OSError:
+            logging.warning('Could not delete temp file %s' % temp_path)
+
+    else:
+        logging.warning('No adjacency object defined for %s [%s]' % (element.name, element.elementid))
