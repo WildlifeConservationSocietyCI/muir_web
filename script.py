@@ -174,10 +174,10 @@ if headers:
         },
     ]
 
-    mw.relationships = test_relationships
-    mw.elements = {e['elementid']: mw.Element(e) for e in test_elements}
-    # mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
-    # mw.elements = {e['elementid']: mw.Element(e) for e in client.get('%smw_elements/' % s.API, **headers).json()}
+    # mw.relationships = test_relationships
+    # mw.elements = {e['elementid']: mw.Element(e) for e in test_elements}
+    mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
+    mw.elements = {e['elementid']: mw.Element(e) for e in client.get('%smw_elements/' % s.API, **headers).json()}
 
     # TODO: See if ordering mw.elements would decrease the # of required runs
     def map_muirweb(run, initally_mapped):

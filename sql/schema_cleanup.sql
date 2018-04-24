@@ -1,4 +1,4 @@
-﻿ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_e_species_fkey FOREIGN KEY (species_id)
+ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_e_species_fkey FOREIGN KEY (species_id)
   REFERENCES e_species (ide_species) ON UPDATE NO ACTION ON DELETE NO ACTION;
 ALTER TABLE welikia_mw_element ADD CONSTRAINT welikia_mw_element_species_id_key UNIQUE (species_id);
 

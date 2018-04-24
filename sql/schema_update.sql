@@ -1,4 +1,4 @@
-﻿UPDATE welikia_mw_element
+UPDATE welikia_mw_element
 SET automap = FALSE
 WHERE automap IS NULL;
 UPDATE welikia_mw_element
