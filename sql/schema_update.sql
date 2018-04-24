@@ -1,55 +1,54 @@
-﻿-- To set up a fresh instance of the objects necessary for the sql in this dir to run:
--- Select a db server that doesn't have an active mannahatta2409 instance already
--- In pg_admin, as administrative postgres user (create db statement must be run by itself):
--- (only if mannahatta user doesn't yet exist)
--- CREATE ROLE mannahatta LOGIN
---     ENCRYPTED PASSWORD 'md535041b17824854b4325d29f4f88ea1f5'
---     SUPERUSER INHERIT CREATEDB NOCREATEROLE NOREPLICATION;
--- (only if guest user doesn't yet exist)
--- CREATE ROLE guest LOGIN
--- NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION;
--- CREATE DATABASE mannahatta2409
---   WITH OWNER = mannahatta
---        ENCODING = 'UTF8'
---        TABLESPACE = pg_default
---        LC_COLLATE = 'en_US.UTF-8'
---        LC_CTYPE = 'en_US.UTF-8'
---        CONNECTION LIMIT = -1;
--- Not necessary but maybe good practice:
--- Switch to newly created mannahatta2409 db as administrative user and run:
--- CREATE extension postgis;
--- CREATE extension postgis_topology;
--- Then switch to newly created mannahatta2409 db as mannahatta user and restore muirweb_prerefactor.backup in this dir.
+UPDATE welikia_mw_element
+SET automap = FALSE
+WHERE automap IS NULL;
+UPDATE welikia_mw_element
+SET automap = TRUE
+WHERE automap = FALSE AND mw_path != ''; -- 88 rows
 
 -- DROP ATTRIBUTES THAT ARE ENTIRELY UNNECESSARY
 
 ALTER TABLE welikia_mw_element
-DROP COLUMN mw_path,
-DROP COLUMN mw_gridname,
-DROP COLUMN externallink,
-DROP COLUMN spatialsource,
-DROP COLUMN notes,
-DROP COLUMN lifetype;
+DROP COLUMN mw_path,  -- path conventions moved to script
+DROP COLUMN mw_gridname,  -- path conventions moved to script
+DROP COLUMN externallink,  -- in e_species
+DROP COLUMN spatialsource,  -- existing vals: 0,2. Obsolete.
+--DROP COLUMN notes,  -- empty -- but good to have available
+-- see comparison queries; may want to edit e_species.mw_likelihood before doing this
+DROP COLUMN probability, -- dropping in favor of e_species.historical_likelihood
+DROP COLUMN lifetype;  -- not used anywhere
 
-ALTER TABLE welikia_mw_relationship
-DROP COLUMN explicit,
-DROP COLUMN spatialrelationship,
-DROP COLUMN spatialcomment;
+DROP TABLE welikia_mw_probability;
 
+ALTER TABLE welikia_mw_frequencytype RENAME description TO name_primary;
+ALTER TABLE welikia_mw_frequencytype ADD COLUMN name_secondary character varying(255) NOT NULL DEFAULT '';
+
+ALTER TABLE welikia_mw_relationship DROP COLUMN explicit;  -- = FALSE for all records; not used
+-- DROP COLUMN spatialrelationship,  -- ? true/false. Not used anywhere.
+-- DROP COLUMN spatialcomment;  -- ? 12 distinct vals, not used anywhere.
+
+-- ? check apps to be sure we're using taxon_id everywhere
 ALTER TABLE e_species DROP COLUMN mw_taxontype; -- constraint gets dropped as well
 
 -- ADD COLUMNS WE'LL BE NEEDING IN THE REFACTOR
 
 ALTER TABLE welikia_mw_element ADD COLUMN species_id integer;
-ALTER TABLE welikia_mw_element ADD COLUMN subset_rule text;
+ALTER TABLE welikia_mw_element ADD COLUMN subset_rule character varying(255) NOT NULL DEFAULT '';
 ALTER TABLE welikia_mw_element ADD COLUMN adjacency_rule integer;
 ALTER TABLE welikia_mw_element ADD COLUMN description text NOT NULL DEFAULT '';
--- These two refer to an outmoded Access table of 20 references that we need to integrate into wobsadmin_reference.
+ALTER TABLE welikia_mw_element ADD COLUMN native_units boolean NOT NULL DEFAULT FALSE;
+-- These refer to an outmoded Access table of 20 references that we need to integrate into wobsadmin_reference.
 -- Leaving these here and clearly marking until we can come back and do that.
 ALTER TABLE welikia_mw_element ADD COLUMN access_description_reference_id integer;
 ALTER TABLE welikia_mw_element RENAME referencenumber TO access_reference_id;
+ALTER TABLE welikia_mw_element ALTER COLUMN access_reference_id DROP NOT NULL;
+-- elementclass isn't used anywhere
+ALTER TABLE welikia_mw_element RENAME elementclass TO access_elementclass;
+ALTER TABLE welikia_mw_element ALTER COLUMN access_elementclass DROP NOT NULL;
+ALTER TABLE welikia_mw_element ALTER COLUMN mw_taxontype DROP NOT NULL;
+ALTER TABLE welikia_mw_element ALTER COLUMN mw_class DROP NOT NULL;
+ALTER TABLE welikia_mw_element ALTER COLUMN aggregationtype DROP NOT NULL;
+ALTER TABLE welikia_mw_element ADD COLUMN last_modified timestamp with time zone;
 
--- ALTER TABLE e_species ADD COLUMN welikia_mw_element_id integer;
 ALTER TABLE e_species ADD COLUMN name_genus character varying(255) NOT NULL DEFAULT '';
 ALTER TABLE e_species ADD COLUMN name_species character varying(255) NOT NULL DEFAULT '';
 -- TODO: create family and genus tables to contain species hierarchically (separating names a good first step)
@@ -98,6 +97,14 @@ CREATE TRIGGER mwelement_name_trigger_update
   FOR EACH ROW
   EXECUTE PROCEDURE public.update_mwelement_name_trigger();
 
+DROP TRIGGER IF EXISTS searchtext_index_update ON public.e_species;
+CREATE TRIGGER searchtext_index_update
+    BEFORE INSERT OR UPDATE
+    ON public.e_species
+    FOR EACH ROW
+    EXECUTE PROCEDURE tsvector_update_trigger('searchtext_index', 'pg_catalog.english', 'name_family', 'name_genus', 'name_species', 'name_common');
+
+
 -- ADD NEW TABLES
 
 CREATE TABLE e_likelihood
@@ -106,11 +113,26 @@ CREATE TABLE e_likelihood
   name character varying(100) NOT NULL,
   CONSTRAINT e_likelihood_pkey PRIMARY KEY (id)
 );
+ALTER TABLE e_likelihood
+  OWNER TO mannahatta;
 
--- create state table
+CREATE TABLE welikia_mw_state_label
+(
+  id serial NOT NULL,
+  name character varying(100) NOT NULL DEFAULT '',
+  CONSTRAINT welikia_mw_state_label_pkey PRIMARY KEY (id),
+  CONSTRAINT welikia_mw_state_label_name_uq UNIQUE (name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_state_label
+  OWNER TO mannahatta;
+
 CREATE TABLE welikia_mw_state
 (
   id serial NOT NULL,
+  label_id integer REFERENCES welikia_mw_state_label,
   legacy_habitatstate_id integer,
   CONSTRAINT welikia_mw_state_pkey PRIMARY KEY (id)
 )
@@ -120,10 +142,24 @@ WITH (
 ALTER TABLE welikia_mw_state
   OWNER TO mannahatta;
 
--- create group table
+CREATE TABLE welikia_mw_group_label
+(
+  id serial NOT NULL,
+  name character varying(100) NOT NULL DEFAULT '',
+  notes text NOT NULL DEFAULT '',
+  CONSTRAINT welikia_mw_group_label_pkey PRIMARY KEY (id),
+  CONSTRAINT welikia_mw_group_label_name_uq UNIQUE (name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE welikia_mw_group_label
+  OWNER TO mannahatta;
+
 CREATE TABLE welikia_mw_group
 (
   id serial NOT NULL,
+  label_id integer REFERENCES welikia_mw_group_label,
   legacy_relationshiptype_id integer,
   CONSTRAINT welikia_mw_group_pkey PRIMARY KEY (id)
 )
@@ -148,20 +184,10 @@ WITH (
 ALTER TABLE public.welikia_mw_interactiontype
   OWNER TO mannahatta;
 
--- add state_id and group_id field to relationship table
 ALTER TABLE welikia_mw_relationship ADD COLUMN state_id integer;
 ALTER TABLE welikia_mw_relationship ADD COLUMN group_id integer;
 ALTER TABLE welikia_mw_relationship ADD COLUMN interactiontype_id integer;
-
--- drop habitatstate_id constraint
 ALTER TABLE welikia_mw_relationship DROP CONSTRAINT mw_relationship_mw_habitatstate;
-
-
-
-
--- relationship type: value is a key to welikia_relationshiptype
--- -- these changes can only be made after relationship group is added
--- ALTER TABLE welikia_mw_relationship ADD COLUMN relationship_type integer NOT NULL;
 
 
 -- What follows is for the model inheritance approach we've abandoned for the time being.

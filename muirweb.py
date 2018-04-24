@@ -1,323 +1,332 @@
-import os
-from prettyprint import pp
-import numpy as np
-import operator
-import arcpy
+import logging
+import re
+import functools
+import pprint as pp
 import mw_settings as s
-import sys
-import gdal
-import os.path
 import raster_utils as ru
+from os.path import join, isfile, splitext
+from osgeo import gdal
+from numpy import *  # not doing the usual import numpy as np because we want to keep subset_rule evaluation simple
+
+gdal.UseExceptions()
+seterr(divide='raise', over='print', under='print', invalid='raise')
+elements = {}
+relationships = {}
+frequency_types = []
+strength_types = []
+
 
 # CLASSES
 
-
 class Element(object):
-    """
-    element should mirror database element model,
-    with the addition of grid and relationship attributes
-    """
 
-    def __init__(self):
+    def __init__(self, obj):
+        for attr, value in obj.items():
+            self[attr] = value
 
-        self.id = None
-        self.name = None
-        self.automap = None
-        self.maxprob = None
-        self.definition = None
-        self.description = None
-        self.relationships = []
+        self.relationships = {}
         self.object_list = []
 
-        self.path = id_path(self.id)
-        self.status = False
-        self.grid = None
+    def __setitem__(self, objkey, value):
+        self.__dict__[objkey] = value
 
-    def show_attributes(self):
-        """
+    def __repr__(self):
+        return self.name
 
-        :return:
-        """
-        print 'id: %s \n' % self.id, \
-              'name: %s \n' % self.name,\
-              'description: %s \n' % self.description, \
-              'definition: %s \n' % self.definition, \
-              'maxprob: %s \n' % self.maxprob,\
-              'object list: %s \n' % self.object_list, \
-              'automap: %s\n' % self.automap, \
-              'status: %s' % self.status
+    @property
+    def id_path(self):
+        elementid = id_str(self.elementid)
+        path = join(s.GRID_DIR, '%s.tif' % elementid)
+        return path
 
-    def check_status(self):
-        """
-        if grid exists status == True, this method differs from set_grid()
-        in that it does not load the raster into memory
-        :return:
-        """
-        if os.path.isfile(self.path):
-            self.status = True
-
-    def set_grid(self):
-        """
-        if exists assign to grid attribute
-        :return:
-        """
-        if os.path.isfile(self.path):
-            self.grid = 'raster_to_numpy(self.path) or arcpy.Raster(self.path)'
-
-    def show_relationships(self):
-        print self.id, self.name, 'requirements:'
-        rel_dict = {}
-
-        for r in self.relationships:
-            if r.state not in rel_dict.keys():
-                rel_dict[r.state] = {}
-            if r.group not in rel_dict[r.state].keys():
-                rel_dict[r.state][r.group] = []
-
-            rel_dict[r.state][r.group].append('%s\t%s' % (r.object, s.ELEMENTS[r.object].name))
-
-        pp(rel_dict)
-
-    def check_requirements(self):
-        """
-        check the status of objects in objects list, if all required grids exist
-        return True, else return False
-        :return:
-        """
-        ro_false = []
-        for o in self.object_list:
-            s.ELEMENTS[o].check_status()
-            print s.ELEMENTS[o].status
-            if s.ELEMENTS[o].status is False:
-                ro_false.append(o)
-
-        if len(ro_false) == 0:
-            print 's.logging.info(all required objects exist'
+    @property
+    def status(self):
+        if isfile(self.id_path):
             return True
-        else:
-            print 's.logging.info(objects %s missing, unable to map %s' % (ro_false, self.name)
-            return False
+        return False
 
-    def set_relationship_grids(self):
-        """
-        sort and group object grids according to state and relationship type
-        :return:
-        """
+    def set_relationships(self):
+        self.object_list = []
         rel_dict = {}
+        subject_rels = [r for r in relationships if r['id_subject'] == self.elementid]
 
-        for r in self.relationships:
-            if r.state not in rel_dict.keys():
-                rel_dict[r.state] = {}
-            if r.type not in rel_dict[r.state].keys():
-                rel_dict[r.state][r.type] = []
+        for r in subject_rels:
+            state = r['state']
+            group = r['relationshiptype']
+            if state not in rel_dict.keys():
+                rel_dict[state] = {}
+            if group not in rel_dict[state].keys():
+                rel_dict[state][group] = []
 
-            # append the object grid to list keyed by state and rel type
-            rel_dict[r.state][r.type].append(ru.raster_to_array(s.ELEMENTS[r.object].path))
+            # append the object element and its relationship to list keyed by state and group
+            rel_dict[state][group].append({
+                'id': r['id'], 
+                'obj': elements[r['id_object']],
+                'rel': r,
+            })
+
+            if r['id_object'] not in self.object_list:
+                self.object_list.append(elements[r['id_object']])
 
         self.relationships = rel_dict
 
+    def show_relationships(self):
+        self.set_relationships()
+        logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
+        logging.info('\n%s' % pp.pformat(self.relationships))
 
-class Relationship(object):
-    """
-    an object that mirrors a single relationship record from the mw_database
-    """
+    def has_requirements(self):
+        """
+        check the status of objects in objects list, if all required grids exist
+        return True, else return False
+        :return: boolean
+        """
+        ro_false = []
+        for o in self.object_list:
+            if o.status is False:
+                ro_false.append(o)
 
-    def __init__(self):
-        self.subject = None
-        self.object = None
-        self.group = None
-        self.strength = None
-        self.state = None
-        self.id = None
-
-
-# TRANSLATION
-
-def json_element_to_object(element):
-    """
-    convert json element object into mw.element instance
-    :param element:
-    :return: mw.element
-    """
-    element_instance = Element()
-    element_instance.id = element['elementid']
-    element_instance.name = element['scientificname']
-    element_instance.maxprob = element['maxprob']
-    element_instance.definition = element['definition']
-    element_instance.description = element['description']
-    element_instance.automap = element['automap']
-    element_instance.path = id_path(element_instance.id)
-    return element_instance
+        if len(ro_false) == 0:
+            logging.info('All required objects exist for %s' % self.name)
+            return True
+        else:
+            logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
+            return False
 
 
-def json_relationship_to_object(relationship):
-    """
-    convert json relationship object into mw.relationship instance
-    :param relationship:
-    :return: mw.relationship
-    """
-    relationship_instance = Relationship()
-    relationship_instance.strength = relationship["strength"]
-    relationship_instance.subject = relationship["id_subject"]
-    relationship_instance.object = relationship["id_object"]
-    relationship_instance.state = int(relationship["habitatstate"])
-    relationship_instance.group = int(relationship["relationshiptype"])
-    relationship_instance.id = relationship["id"]
-    return relationship_instance
+# UTILITIES
+
+def api_headers(client=False):
+    # If we need to authorize to get to the API, this is where we'd do it; 'Authorization': 'Bearer %s' % access_token
+    if client:
+        pass
+    headers = {}
+    return {'params': s.params, 'headers': headers}
 
 
-def id_path(element_id):
-    """
-    convert element id into grid path
-    :param element_id:
-    :return:path
-    """
-    element_id = str(element_id).replace('.', '_')
-    path = os.path.join(s.ROOT_DIR, '%s.tif' % element_id)
-    return path
+def calc_grid(elementid):
+    subject = elements[elementid]
+    logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
+    if subject.has_requirements():
+        try:
+            if subject.mw_definition == s.COMBINATION:
+                combination(subject)
+            elif subject.mw_definition == s.SUBSET:
+                subset(subject)
+            elif subject.mw_definition == s.ADJACENCY:
+                adjacency(subject)
+            return True
+        except Exception as e:
+            logging.exception('exception!')
+            return False
+    else:
+        return False
+
+
+def get_by_id(list_of_dicts, dictkey, prop):
+    for d in list_of_dicts:
+        if d['id'] == dictkey:
+            return d[prop]
+    return None
+
+
+def get_maxprob(element):
+    return float(get_by_id(frequency_types, element.frequencytype, 'maxprob')) or 100.0
+
+
+def get_object(element):  # for subjects with a relationship (subset, adjacency) depending on a single object
+    # state = element.relationships.keys()[0]
+    # group = element.relationships[state].keys()[0]
+    # return element.relationships[state][group][0]
+    return element.object_list[0] or None
+
+
+def id_str(id_decimal):  # form is decimal, but datatype can be str
+    return str(id_decimal).replace('.', '_')
+
+
+def parse_calc(expression):
+    dict_str = r"arrays['\1']"
+    p = re.compile('\[([0|[1-9]\d*?\.\d+?(?<=\d))]')
+    return p.sub(dict_str, expression)
 
 
 # MAPPING METHODS
 
-
-def num(s):
-    try:
-        return int(s)
-    except ValueError:
-        return s
-
-
-def boolean_parser(s):
-    ops = {'==': operator.eq,
-           '!=': operator.ne,
-           '<=': operator.le,
-           'or': operator.or_,
-           'and': operator.and_}
-
-    con_expresison = []
-
-    for sym in str.split(s):
-        if sym in ops:
-            con_expresison.append(ops[sym])
-        else:
-            con_expresison.append(num(sym))
-
-    return con_expresison
+def round_int(arr):
+    return floor(arr + 0.5).astype(int16)
 
 
 def union(object_list):
-    #TODO object list is the element object, grid is a attribute of and element object, scale by strength
-    # object_list = [i.grid / 100.0 * i.strength for i in object_list]
-    object_list = [i / 100.0 for i in object_list]
-    u = reduce(lambda x, y: x + y, object_list)
-    u *= 100
+    if len(object_list) == 1:
+        return object_list[0]
+    # object_list = [i / 100.0 for i in object_list]
+    u = functools.reduce(lambda x, y: x + y, object_list)
+    # u *= 100
     u[u > 100] = 100
     return u
 
 
 def intersection(object_list):
+    if len(object_list) == 1:
+        return object_list[0]
     object_list = [i / 100.0 for i in object_list]
-    return reduce(lambda x, y: x * y, object_list)
+    u = functools.reduce(lambda x, y: x * y, object_list)
+    u *= 100
+    u[u > 100] = 100
+    return u
 
 
 def combination(element):
+    element.set_relationships()
 
     states = []
-    excl = []
+    habitat_mods = []
+    geotransform = None
+    projection = None
+    nodata = None
+    default_habitat = None
 
     for state in element.relationships:
         groups = []
         for group in element.relationships[state]:
-            # if relationship is negative
-            # element.relationships[state][group].type == 1:
-                # excl.append(union(element.relationships[state][group]))
-            # else:
-            groups.append(union(element.relationships[state][group]))
+            rasters = []
+            for rel in element.relationships[state][group]:
+                arr, geotransform, projection, nodata = ru.raster_to_ndarray(rel['obj'].id_path)
+                strength = float(get_by_id(strength_types, rel['rel']['strengthtype'], 'prob')) / 100
+                if default_habitat is None:
+                    default_habitat = ma.copy(arr)
+                    default_habitat[default_habitat >= 0] = 1
 
-        states.append(intersection(group))
+                if rel['rel']['interactiontype'] == s.REQUIRED:
+                    rasters.append(arr * strength)
+                elif rel['rel']['interactiontype'] == s.ENHANCING:
+                    habitat_mods.append(100 + (arr * strength))
+                elif rel['rel']['interactiontype'] == s.ATTENUATING:
+                    habitat_mods.append(100 - (arr * strength))
 
-    print states
-    habitat = union(states)
-    """
-        suitability of cell (probability of subject pressence) is inversely
-        proportional to the likelihood of negatively influencing conditions
-        scaled by the strength of the relationship.
-    """
+            if len(rasters) > 0:
+                groups.append(union(rasters))
 
-    # for i in excl:
-    #     habitat *= ((1 - i.grid / 100.0 * i.strength))
-    # if exlusionary conditions reduce subject probability to a value less than 0
-    # set to 0
-    # habitat[habitat < 0] = 0
+        if len(groups) > 0:
+            states.append(intersection(groups))
+
+    if len(states) > 0:
+        habitat = union(states)
+    else:
+        habitat = default_habitat
+
+    # habitat mods (enhancing/attenuating) are applied (intersected) after calculation of core habitat.
+    # This means the states and groups of relationships for this interaction type are labels only;
+    # the union/intersection logic they imply for core habitat does not apply to mods.
+    habitat = intersection([habitat] + habitat_mods)
 
     # scale by prevalence
-    habitat *= (element.maxprob)
-    habitat = np.floor(habitat + 0.5)
-    # convert dtype to int
-    habitat = habitat.astype(dtype=np.int16)
+    habitat = habitat * get_maxprob(element) / 100
 
-    # convert to np.array to arcpy raster object
-    element.grid = arcpy.NumPyArrayToRaster(habitat)
-
-    # save raster
-    element.grid.save(element.path)
+    out_raster = {
+        'file': element.id_path,
+        'geotransform': geotransform,
+        'projection': projection,
+        'nodata': nodata
+    }
+    ru.ndarray_to_raster(round_int(habitat), out_raster)
 
 
 def subset(element):
     """
-    subsets: e.g. 31.1 Gently sloping slopes
-    assumes:  1) presence of 'Grid' and 'MaxProb' strings in descrip for substitution
-               2) only 1 object for subject to be a subset of
-    returns a subjet of an array using conditional indexing
+    requires element.subset_rule to adhere to gdalnumeric syntax using +-/* or any
+    numpy array functions (e.g. logical_and()) (http://www.gdal.org/gdal_calc.html)
+    and use [elementid] as placeholders in calc string
+    https://stackoverflow.com/questions/3030480/numpy-array-how-to-select-indices-satisfying-multiple-conditions
+    note on bitwise vs. logical:
+    https://stackoverflow.com/questions/10377096/multiple-conditions-using-or-in-numpy-array
+    Example: logical_and([31.00] >= 2, [31.00] <= 5)
     """
+    arrays = {}
+    geotransform = None
+    projection = None
+    nodata = None
+    present = None
+    absent = None
+    element.set_relationships()
 
-    obj = element.object_list[0]
+    if len(element.object_list) > 0:
+        calc_expression = parse_calc(element.subset_rule)
 
-    obj = arcpy.RasterToNumPyArray(obj)
-    shape = obj.shape
+        for idx, obj in enumerate(element.object_list):
+            # geotransform, projection, nodata set to those of last element in object_list
+            arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
+            if idx == 0:
+                # present/absent need both proper mask AND nodata vals in that mask
+                # this relies on nodata being assigned the lowest possible val
+                present = ma.copy(arrays[obj.elementid])
+                present[present > nodata] = 1
+                absent = ma.copy(arrays[obj.elementid])
+                absent[absent > nodata] = 0
 
-    present = np.full(shape=shape, fill_value=1, dtype=np.int16)
-    absent = np.full(shape=shape, fill_value=0, dtype=np.int16)
-    subset = np.where(eval(element.description), present, absent)
-    subset *= element.maxprob
+        subset_array = ma.where(eval(calc_expression), present, absent)
+        present = None
+        absent = None
+        # subset_array *= get_maxprob(element)
+        subset_array = subset_array * get_maxprob(element)
 
-    element.grid = arcpy.NumPyArrayToRaster(subset)
+        out_raster = {
+            'file': element.id_path,
+            'geotransform': geotransform,
+            'projection': projection,
+            'nodata': nodata
+        }
+        ru.ndarray_to_raster(round_int(subset_array), out_raster)
 
 
 def adjacency(element):
+    element.set_relationships()
 
-    # adjacency relationship parameters
-    obj = element.relationship[0][10]
-    subject = element.id
-    maxdist = element.description
+    obj = get_object(element)
+    if obj is not None:
+        # http://www.gdal.org/gdal_proximity.html
+        # http://arijolma.org/Geo-GDAL/1.6/class_geo_1_1_g_d_a_l.html#afa9a3fc598089b58eb23445b8c1c88b4
+        options = ['MAXDIST=%s' % (element.adjacency_rule / s.CELL_SIZE),
+                   'VALUES=%s' % ','.join(str(i) for i in range(1, 101)),
+                   'FIXED_BUF_VAL=%s' % get_maxprob(element),
+                   'USE_INPUT_NODATA=YES',
+                   ]
 
-    # gdal proximity parameters
-    format = 'GTiff'
-    distance = ['MAXDIST=%s' % (maxdist / s.CELL_SIZE)]
-    src_filename = os.path.join(s.ROOT_DIR, '%s.tif' % obj)
-    dst_temp_filename = os.path.join(s.ROOT_DIR, '%s_temp.tif' % subject)
-    dst_filename = os.path.join(s.ROOT_DIR, '%s.tif' % subject)
+        src_ds = gdal.Open(obj.id_path)
+        src_band = src_ds.GetRasterBand(1)
+        temp_path = '%s_temp%s' % (splitext(element.id_path)[0], splitext(element.id_path)[1])
+        temp_ds = gdal.GetDriverByName(s.RASTER_DRIVER).CreateCopy(temp_path, src_ds, 0)
+        temp_band = temp_ds.GetRasterBand(1)
 
-    driver = gdal.GetDriverByName('GTiff')
-    src_ds = gdal.Open(src_filename)
-    src_band = src_ds.GetRasterBand(1)
+        gdal.ComputeProximity(src_band, temp_band, options=options)
+        # temp_band.FlushCache()
+        src_ds = None
+        temp_ds = None
 
-    dst_ds = driver.CreateCopy(dst_temp_filename, src_ds, 0)
-    dst_band = dst_ds.GetRasterBand(1)
+        # unmask, preserve non-nodata from source object as 0, then remask
+        # TODO: see if we can avoid writing temp path to disk and then reopening
+        dst_arr, geotransform, projection, nodata = ru.raster_to_ndarray(temp_path)
+        dst_arr = array(dst_arr.data)
+        obj_arr, g, p, n = ru.raster_to_ndarray(obj.id_path)
+        obj_arr = array(obj_arr.data)
+        dst_arr = where(logical_and(obj_arr != nodata, dst_arr == nodata), 0, dst_arr)
+        dst_arr = ma.masked_values(dst_arr, nodata)
 
-    gdal.ComputeProximity(src_band, dst_band, distance)
+        out_raster = {
+            'file': element.id_path,
+            'geotransform': geotransform,
+            'projection': projection,
+            'nodata': nodata
+        }
+        ru.ndarray_to_raster(dst_arr, out_raster)
 
-    srcband = None
-    dstband = None
-    src_ds = None
-    dst_ds = None
+        dst_arr = None
+        obj_arr = None
+        try:
+            os.remove(temp_path)
+        except OSError:
+            logging.warning('Could not delete temp file %s' % temp_path)
 
-    # load product of proximity calculation replace all non-zero values with
-    # element maxprob
-    adj, geotransform, projection = ru.raster_to_array(dst_temp_filename, metadata=True)
-    adj[adj > 0] = element.maxprob
-    adj[adj <= 0] = 0
-
-    # save ndarray to tif
-    ru.ndarray_to_raster(adj, dst_filename, geotransform=geotransform, projection=projection)
-    os.remove(dst_temp_filename)
+    else:
+        logging.warning('No adjacency object defined for %s [%s]' % (element.name, element.elementid))

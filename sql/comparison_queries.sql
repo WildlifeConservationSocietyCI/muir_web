@@ -3,6 +3,7 @@ SELECT es.mw_elementid,
        mwe.elementid,
        es.name_scientific,
        es.name_common,
+       es.mw_likelihood,
        l.name AS e_likelihood,
        mwp.name AS mw_probability
        FROM e_species AS es
@@ -12,6 +13,24 @@ SELECT es.mw_elementid,
                          ON (es.mw_elementid = mwe.elementid)
             FULL OUTER JOIN welikia_mw_probability as mwp
 		         ON (mwe.probability = mwp.id);
+
+-- before changing anything --
+SELECT
+  es.mw_elementid,
+  mwe.elementid,
+  es.name_scientific,
+  es.name_common,
+  es.mw_likelihood AS species_likelihood,
+  mwe.probability AS element_probability,
+  mwp.name AS element_probability_name,
+  mwf.maxprob AS element_frequency_maxprob,
+  mwf.description AS element_frequency_description
+FROM e_species es
+  INNER JOIN welikia_mw_element mwe ON (es.mw_elementid = mwe.elementid)
+  LEFT JOIN welikia_mw_frequencytype mwf ON (mwe.frequencytype_id = mwf.id)
+  LEFT JOIN welikia_mw_probability mwp ON (mwe.probability = mwp.id)
+--WHERE maxprob = 0;
+--WHERE es.mw_likelihood NOT LIKE '%Likely%' and es.mw_likelihood NOT LIKE '%Assumed%' and es.mw_likelihood NOT LIKE '%Probable%';
 
 -- This yielded only 3 discrepancies between mw_taxontypes, and the mw_element version was better in all cases
 SELECT ide_species, name_common, mw_commonname, s.mw_taxontype, e.mw_taxontype
@@ -25,8 +44,6 @@ SELECT DISTINCT(reference_id), COUNT(id)
   FROM welikia_mw_element_description
   GROUP BY reference_id
   ORDER BY reference_id;
--- TODO: go through all records in welikia_mw_element and properly attribute a record in wobsadmin_reference,
--- entering things like old spreadsheets as sources in zotero when necessary
 
 -- To compare writtendefinition and description
 SELECT e.id, mw_definition, e.writtendefinition, e.notes, description, reference_id
