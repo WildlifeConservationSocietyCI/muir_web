@@ -87,10 +87,10 @@ class Element(object):
                 ro_false.append(o)
 
         if len(ro_false) == 0:
-            logging.info('All required objects exist for %s' % self.name)
+            # logging.info('All required objects exist for %s' % self.name)
             return True
         else:
-            logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
+            # logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
             return False
 
 
@@ -149,6 +149,15 @@ def parse_calc(expression):
     dict_str = r"arrays['\1']"
     p = re.compile('\[([0|[1-9]\d*?\.\d+?(?<=\d))]')
     return p.sub(dict_str, expression)
+
+
+def clear_automapped():
+    for el in elements:
+        if el.mapped_manually is False and el.status is True:
+            try:
+                os.remove(el.id_path)
+            except OSError:
+                logging.warning('Failed to clear %s' % el.id_path)
 
 
 # MAPPING METHODS
