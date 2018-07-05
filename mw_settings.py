@@ -1,7 +1,7 @@
-ROOT_DIR = r'C:\Users\kfisher\Documents\welikia\muirweb'
+ROOT_DIR = r'D:\_data\Welikia\muirweb'
 GRID_DIR = r'%s\grids' % ROOT_DIR
-# API = 'https://visionmaker.us/api/v2/'
-API = 'http://localhost:8080/api/v2/'
+# API = 'http://localhost:8080/api/v2/'
+API = 'https://visionmaker.us/api/v2/'
 CELL_SIZE = 5
 LOG_DIR = ''
 RASTER_DRIVER = 'GTiff'
@@ -20,3 +20,4 @@ ENHANCING = 2
 ATTENUATING = 3
 
 params = {'format': 'json'}
+# http_auth = ('mannahattadev', 'mannahattadev')

@@ -101,7 +101,10 @@ def api_headers(client=False):
     if client:
         pass
     headers = {}
-    return {'params': s.params, 'headers': headers}
+    api_head = {'params': s.params, 'headers': headers}
+    if hasattr(s, 'http_auth'):
+        api_head['auth'] = s.http_auth
+    return api_head
 
 
 def calc_grid(elementid):
