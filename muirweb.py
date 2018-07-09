@@ -73,8 +73,8 @@ class Element(object):
 
     def show_relationships(self):
         self.set_relationships()
-        logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
-        logging.info('\n%s' % pp.pformat(self.relationships))
+        # logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
+        # logging.info('\n%s' % pp.pformat(self.relationships))
 
     def has_requirements(self):
         """
@@ -156,7 +156,7 @@ def parse_calc(expression):
 
 
 def clear_automapped():
-    for el in elements:
+    for elementid, el in elements.items():
         if el.mapped_manually is False and el.status is True:
             try:
                 os.remove(el.id_path)
