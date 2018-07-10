@@ -5,9 +5,6 @@ from osgeo.gdalconst import *
 from osgeo import gdal_array
 from osgeo import osr
 import mw_settings as s
-# import os
-# from wmi import WMI
-# import muirweb as mw
 
 
 def get_geo_info(ds):
@@ -26,13 +23,12 @@ def raster_to_ndarray(in_raster):
     array = gdal_array.DatasetReadAsArray(src_ds)
     # print(array.dtype)
     # print(np.issubdtype(array.dtype, np.integer))
-    # array[array == nodata] = np.nan
     print(nodata)
     print(array)
     array = np.ma.masked_values(array, nodata)
     # array = np.ma.masked_equal(array, nodata)
     print(array)
-
+    # array = np.ma.masked_equal(array, nodata)  # int only
     # Force nodata value to avoid divergent input nodata values
     datatype = src_ds.GetRasterBand(1).DataType
     if datatype == gdal.GDT_Int16:
@@ -75,25 +71,3 @@ def ndarray_to_raster(array, out_raster):
     out_raster = None
     ourput_raster = None
 
-
-# def get_memory():
-#     # Reports current memory usage
-#
-#     w = WMI('.')
-#     result = w.query("SELECT WorkingSet FROM Win32_PerfRawData_PerfProc_Process WHERE IDProcess=%d" % os.getpid())
-#     memory = int(result[0].WorkingSet) / 1000000.0
-#     print(memory, 'mb')
-#
-#
-# def scale_test(num_rasters, size):
-#     l = []
-#
-#     get_memory()
-#     for i in range(0,num_rasters):
-#         print('raster %s' % i)
-#         l.append(np.random.randint(0, 100, size, dtype=np.int16))
-#         get_memory()
-#     print('sum arrays')
-#     mw.union(l)
-#     get_memory()
-#     # sum(l)

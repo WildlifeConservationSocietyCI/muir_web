@@ -1,4 +1,4 @@
-﻿UPDATE welikia_mw_element
+UPDATE welikia_mw_element
 SET automap = FALSE
 WHERE automap IS NULL;
 ALTER TABLE welikia_mw_element
@@ -226,8 +226,7 @@ SELECT update_relationships();
 
 
 -- move new habitat state to state_id column
-UPDATE welikia_mw_relationship
-SET state_id = habitatstate_id;
+UPDATE welikia_mw_relationship SET state_id = habitatstate_id;
 
 -- REFACTOR STRENGTH AND INTERACTION TYPES
 /*

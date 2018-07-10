@@ -5,3 +5,4 @@ scratch.py
 *.pyc
 element_grids/
 sql/elements_using_conditional_loop.sql
+mw_settings.py
