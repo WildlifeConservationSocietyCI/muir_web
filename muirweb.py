@@ -73,8 +73,8 @@ class Element(object):
 
     def show_relationships(self):
         self.set_relationships()
-        # logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
-        # logging.info('\n%s' % pp.pformat(self.relationships))
+        logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
+        logging.info('\n%s' % pp.pformat(self.relationships))
 
     def has_requirements(self):
         """
@@ -91,7 +91,7 @@ class Element(object):
             # logging.info('All required objects exist for %s' % self.name)
             return True
         else:
-            # logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
+            logging.error('Unable to map %s [%s]; objects missing: %s' % (self.name, self.elementid, ro_false))
             return False
 
 
@@ -110,16 +110,17 @@ def api_headers(client=False):
 
 def calc_grid(elementid):
     subject = elements[elementid]
-    logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
+    subject.set_relationships()
+
     if subject.has_requirements():
+        logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
         try:
             if subject.mw_definition == s.COMBINATION:
-                combination(subject)
+                return combination(subject)
             elif subject.mw_definition == s.SUBSET:
-                subset(subject)
+                return subset(subject)
             elif subject.mw_definition == s.ADJACENCY:
-                adjacency(subject)
-            return True
+                return adjacency(subject)
         except Exception as e:
             logging.exception('exception!')
             return False
@@ -193,8 +194,6 @@ def intersection(object_list):
 
 
 def combination(element):
-    element.set_relationships()
-
     states = []
     habitat_mods = []
     geotransform = None
@@ -243,9 +242,10 @@ def combination(element):
         'file': element.id_path,
         'geotransform': geotransform,
         'projection': projection,
-        'nodata': s.NODATA_INT16
+        'nodata': nodata
     }
     ru.ndarray_to_raster(round_int(habitat), out_raster)
+    return True
 
 
 def subset(element):
@@ -265,7 +265,6 @@ def subset(element):
     projection = None
     present = None
     absent = None
-    element.set_relationships()
 
     if len(element.object_list) > 0:
         calc_expression = parse_calc(element.subset_rule)
@@ -282,25 +281,30 @@ def subset(element):
                 present = ma.where(pa.data != s.NODATA_INT16, 1, pa.data)
                 absent = ma.where(pa.data != s.NODATA_INT16, 0, pa.data)
 
-        subset_array = ma.where(eval(calc_expression), present, absent)
-        present = None
-        absent = None
-        # subset_array *= get_maxprob(element)
-        subset_array = subset_array * get_maxprob(element)
+        try:
+            subset_array = ma.where(eval(calc_expression), present, absent)
+            present = None
+            absent = None
+            # subset_array *= get_maxprob(element)
+            subset_array = subset_array * get_maxprob(element)
 
-        out_raster = {
-            'file': element.id_path,
-            'geotransform': geotransform,
-            'projection': projection,
-            'nodata': s.NODATA_INT16
-        }
+            out_raster = {
+                'file': element.id_path,
+                'geotransform': geotransform,
+                'projection': projection,
+                'nodata': s.NODATA_INT16
+            }
 
-        ru.ndarray_to_raster(round_int(subset_array), out_raster)
+            ru.ndarray_to_raster(round_int(subset_array), out_raster)
+            return True
+
+        except KeyError as e:
+            logging.error('{} in the subset rule is not an object of {} [{}]'.format(e, element.elementid,
+                                                                                     element.name))
+            return False
 
 
 def adjacency(element):
-    element.set_relationships()
-
     obj = get_object(element)
     if obj is not None:
         # http://www.gdal.org/gdal_proximity.html
@@ -346,5 +350,8 @@ def adjacency(element):
         except OSError:
             logging.warning('Could not delete temp file %s' % temp_path)
 
+        return True
+
     else:
         logging.warning('No adjacency object defined for %s [%s]' % (element.name, element.elementid))
+        return False

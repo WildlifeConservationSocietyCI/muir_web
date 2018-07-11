@@ -31,7 +31,7 @@ def raster_to_ndarray(in_raster):
     #     nodata = s.NODATA_FLOAT32
     # else:
     #     logging.exception('Raster data type %s not implemented' % datatype)
-    array.set_fill_value(nodata)
+    # array.set_fill_value(nodata)
 
     src_ds = None
     return array, geotransform, projection, nodata
@@ -47,7 +47,6 @@ def ndarray_to_raster(array, out_raster):
     srs.ImportFromWkt(out_raster['projection'])
     output_raster.SetProjection(srs.ExportToWkt())
 
-    array.set_fill_value(out_raster['nodata'])
     output_raster.GetRasterBand(1).WriteArray(array)
     output_raster.GetRasterBand(1).SetNoDataValue(out_raster['nodata'])
 
