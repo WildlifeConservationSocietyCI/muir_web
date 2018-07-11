@@ -77,13 +77,13 @@ if headers:
         }
     ]
 
-    # mw.relationships = test_relationships
-    # mw.elements = {e['elementid']: mw.Element(e) for e in test_elements}
-    mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
-
-    raw_elements = client.get('%smw_elements/' % s.API, **headers).json()
-    sorted_elements = sorted(raw_elements, key=lambda k: float(k['elementid']))
-    mw.elements = OrderedDict([(e['elementid'], mw.Element(e)) for e in sorted_elements])
+    mw.relationships = test_relationships
+    mw.elements = {e['elementid']: mw.Element(e) for e in test_elements}
+    # mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
+    #
+    # raw_elements = client.get('%smw_elements/' % s.API, **headers).json()
+    # sorted_elements = sorted(raw_elements, key=lambda k: float(k['elementid']))
+    # mw.elements = OrderedDict([(e['elementid'], mw.Element(e)) for e in sorted_elements])
     # mw.elements = {e['elementid']: mw.Element(e) for e in client.get('%smw_elements/' % s.API, **headers).json()}
 
     def map_muirweb(run, initally_mapped):

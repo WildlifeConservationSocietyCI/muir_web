@@ -169,9 +169,6 @@ def clear_automapped():
 def round_int(arr):
     newarr = floor(arr + 0.5).astype(int16)
     newarr.set_fill_value(s.NODATA_INT16)
-    print(newarr)
-    print(newarr.mask)
-    print(newarr.fill_value)
     return newarr
 
 
@@ -253,7 +250,9 @@ def combination(element):
 
 def subset(element):
     """
-    requires element.subset_rule to adhere to gdalnumeric syntax using +-/* or any
+    subset objects for use in where() can be float, but output is coerced to int16
+    i.e. subset supports arbitrary map algebra with arbitrary units but always yields standard MW 0-100 int16
+    element.subset_rule must adhere to gdalnumeric syntax using +-/* or any
     numpy array functions (e.g. logical_and()) (http://www.gdal.org/gdal_calc.html)
     and use [elementid] as placeholders in calc string
     https://stackoverflow.com/questions/3030480/numpy-array-how-to-select-indices-satisfying-multiple-conditions
@@ -264,7 +263,6 @@ def subset(element):
     arrays = {}
     geotransform = None
     projection = None
-    nodata = None
     present = None
     absent = None
     element.set_relationships()
@@ -273,21 +271,16 @@ def subset(element):
         calc_expression = parse_calc(element.subset_rule)
 
         for idx, obj in enumerate(element.object_list):
-            # geotransform, projection, nodata set to those of last element in object_list
+            # geotransform, projection set to those of last element in object_list
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
-            logging.info(obj.elementid)
-            logging.info(arrays[obj.elementid])
-            logging.info(arrays[obj.elementid][5000][5000])
-            logging.info(arrays[obj.elementid].dtype)
-            logging.info(arrays[obj.elementid].fill_value)
-            logging.info(nodata)
             if idx == 0:
                 # present/absent need both proper mask AND nodata vals in that mask
-                # this relies on nodata being assigned the lowest possible val
-                present = ma.copy(arrays[obj.elementid])
-                present[present > nodata] = 1
-                absent = ma.copy(arrays[obj.elementid])
-                absent[absent > nodata] = 0
+                # GDAL WriteArray() requires datatype-appropriate nodata values in the
+                # underlying array data (i.e. it ignores mask)
+                pa = arrays[obj.elementid].filled(s.NODATA_INT16).astype(int16)
+                pa = ma.masked_values(pa, s.NODATA_INT16)
+                present = ma.where(pa.data != s.NODATA_INT16, 1, pa.data)
+                absent = ma.where(pa.data != s.NODATA_INT16, 0, pa.data)
 
         subset_array = ma.where(eval(calc_expression), present, absent)
         present = None
@@ -301,18 +294,8 @@ def subset(element):
             'projection': projection,
             'nodata': s.NODATA_INT16
         }
-        out_raster_test = {
-            'file': element.id_path,
-            'geotransform': geotransform,
-            'projection': projection,
-            'nodata': nodata
-        }
-        # print(subset_array)
-        # print(subset_array.fill_value)
-        # print(nodata)
-        # print(np.issubdtype(subset_array.dtype, integer))
-        ru.ndarray_to_raster(subset_array, out_raster_test)
-#        ru.ndarray_to_raster(round_int(subset_array), out_raster)
+
+        ru.ndarray_to_raster(round_int(subset_array), out_raster)
 
 
 def adjacency(element):
