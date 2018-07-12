@@ -91,7 +91,7 @@ class Element(object):
             # logging.info('All required objects exist for %s' % self.name)
             return True
         else:
-            logging.error('Unable to map %s [%s]; objects missing: %s' % (self.name, self.elementid, ro_false))
+            # logging.error('Unable to map %s [%s]; objects missing: %s' % (self.name, self.elementid, ro_false))
             return False
 
 
