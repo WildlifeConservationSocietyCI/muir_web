@@ -167,8 +167,9 @@ def clear_automapped():
 
 # MAPPING METHODS
 
-def round_int(arr):
+def round_int(arr, nodata):
     newarr = floor(arr + 0.5).astype(int16)
+    newarr = ma.where(newarr.data == nodata, s.NODATA_INT16, newarr.data)  # convert source nodata to int16 nodata
     newarr.set_fill_value(s.NODATA_INT16)
     return newarr
 
@@ -242,9 +243,9 @@ def combination(element):
         'file': element.id_path,
         'geotransform': geotransform,
         'projection': projection,
-        'nodata': nodata
+        'nodata': s.NODATA_INT16
     }
-    ru.ndarray_to_raster(round_int(habitat), out_raster)
+    ru.ndarray_to_raster(round_int(habitat, nodata), out_raster)
     return True
 
 
@@ -295,7 +296,7 @@ def subset(element):
                 'nodata': s.NODATA_INT16
             }
 
-            ru.ndarray_to_raster(round_int(subset_array), out_raster)
+            ru.ndarray_to_raster(subset_array, out_raster)
             return True
 
         except KeyError as e:
@@ -332,14 +333,15 @@ def adjacency(element):
         dst_arr = array(dst_arr.data)
         obj_arr, g, p, n = ru.raster_to_ndarray(obj.id_path)
         obj_arr = array(obj_arr.data)
-        dst_arr = where(logical_and(obj_arr != nodata, dst_arr == nodata), 0, dst_arr)
-        dst_arr = ma.masked_values(dst_arr, nodata)
+        dst_arr = where(logical_and(obj_arr != nodata, dst_arr == nodata), 0, dst_arr).astype(int16)
+        dst_arr = where(dst_arr == nodata, s.NODATA_INT16, dst_arr)  # convert source nodata to int16 nodata
+        dst_arr = ma.masked_values(dst_arr, s.NODATA_INT16)
 
         out_raster = {
             'file': element.id_path,
             'geotransform': geotransform,
             'projection': projection,
-            'nodata': nodata
+            'nodata': s.NODATA_INT16
         }
         ru.ndarray_to_raster(dst_arr, out_raster)
 
