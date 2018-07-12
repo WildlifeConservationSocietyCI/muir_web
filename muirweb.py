@@ -61,7 +61,7 @@ class Element(object):
 
             # append the object element and its relationship to list keyed by state and group
             rel_dict[state][group].append({
-                'id': r['id'], 
+                'id': r['id'],
                 'obj': elements[r['id_object']],
                 'rel': r,
             })
@@ -73,8 +73,8 @@ class Element(object):
 
     def show_relationships(self):
         self.set_relationships()
-        # logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
-        # logging.info('\n%s' % pp.pformat(self.relationships))
+        logging.info(' '.join([str(self.elementid), self.name, 'requirements:']))
+        logging.info('\n%s' % pp.pformat(self.relationships))
 
     def has_requirements(self):
         """
@@ -91,7 +91,7 @@ class Element(object):
             # logging.info('All required objects exist for %s' % self.name)
             return True
         else:
-            # logging.error('Unable to map %s; objects missing: %s' % (self.name, ro_false))
+            # logging.error('Unable to map %s [%s]; objects missing: %s' % (self.name, self.elementid, ro_false))
             return False
 
 
@@ -110,16 +110,17 @@ def api_headers(client=False):
 
 def calc_grid(elementid):
     subject = elements[elementid]
-    logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
+    subject.set_relationships()
+
     if subject.has_requirements():
+        logging.info('Mapping %s [%s]' % (subject.elementid, subject.name))
         try:
             if subject.mw_definition == s.COMBINATION:
-                combination(subject)
+                return combination(subject)
             elif subject.mw_definition == s.SUBSET:
-                subset(subject)
+                return subset(subject)
             elif subject.mw_definition == s.ADJACENCY:
-                adjacency(subject)
-            return True
+                return adjacency(subject)
         except Exception as e:
             logging.exception('exception!')
             return False
@@ -167,7 +168,9 @@ def clear_automapped():
 # MAPPING METHODS
 
 def round_int(arr):
-    return floor(arr + 0.5).astype(int16)
+    newarr = floor(arr + 0.5).astype(int16)
+    newarr.set_fill_value(s.NODATA_INT16)
+    return newarr
 
 
 def union(object_list):
@@ -191,8 +194,6 @@ def intersection(object_list):
 
 
 def combination(element):
-    element.set_relationships()
-
     states = []
     habitat_mods = []
     geotransform = None
@@ -244,11 +245,14 @@ def combination(element):
         'nodata': nodata
     }
     ru.ndarray_to_raster(round_int(habitat), out_raster)
+    return True
 
 
 def subset(element):
     """
-    requires element.subset_rule to adhere to gdalnumeric syntax using +-/* or any
+    subset objects for use in where() can be float, but output is coerced to int16
+    i.e. subset supports arbitrary map algebra with arbitrary units but always yields standard MW 0-100 int16
+    element.subset_rule must adhere to gdalnumeric syntax using +-/* or any
     numpy array functions (e.g. logical_and()) (http://www.gdal.org/gdal_calc.html)
     and use [elementid] as placeholders in calc string
     https://stackoverflow.com/questions/3030480/numpy-array-how-to-select-indices-satisfying-multiple-conditions
@@ -259,43 +263,48 @@ def subset(element):
     arrays = {}
     geotransform = None
     projection = None
-    nodata = None
     present = None
     absent = None
-    element.set_relationships()
 
     if len(element.object_list) > 0:
         calc_expression = parse_calc(element.subset_rule)
 
         for idx, obj in enumerate(element.object_list):
-            # geotransform, projection, nodata set to those of last element in object_list
+            # geotransform, projection set to those of last element in object_list
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
             if idx == 0:
                 # present/absent need both proper mask AND nodata vals in that mask
-                # this relies on nodata being assigned the lowest possible val
-                present = ma.copy(arrays[obj.elementid])
-                present[present > nodata] = 1
-                absent = ma.copy(arrays[obj.elementid])
-                absent[absent > nodata] = 0
+                # GDAL WriteArray() requires datatype-appropriate nodata values in the
+                # underlying array data (i.e. it ignores mask)
+                pa = arrays[obj.elementid].filled(s.NODATA_INT16).astype(int16)
+                pa = ma.masked_values(pa, s.NODATA_INT16)
+                present = ma.where(pa.data != s.NODATA_INT16, 1, pa.data)
+                absent = ma.where(pa.data != s.NODATA_INT16, 0, pa.data)
 
-        subset_array = ma.where(eval(calc_expression), present, absent)
-        present = None
-        absent = None
-        # subset_array *= get_maxprob(element)
-        subset_array = subset_array * get_maxprob(element)
+        try:
+            subset_array = ma.where(eval(calc_expression), present, absent)
+            present = None
+            absent = None
+            # subset_array *= get_maxprob(element)
+            subset_array = subset_array * get_maxprob(element)
 
-        out_raster = {
-            'file': element.id_path,
-            'geotransform': geotransform,
-            'projection': projection,
-            'nodata': nodata
-        }
-        ru.ndarray_to_raster(round_int(subset_array), out_raster)
+            out_raster = {
+                'file': element.id_path,
+                'geotransform': geotransform,
+                'projection': projection,
+                'nodata': s.NODATA_INT16
+            }
+
+            ru.ndarray_to_raster(round_int(subset_array), out_raster)
+            return True
+
+        except KeyError as e:
+            logging.error('{} in the subset rule is not an object of {} [{}]'.format(e, element.elementid,
+                                                                                     element.name))
+            return False
 
 
 def adjacency(element):
-    element.set_relationships()
-
     obj = get_object(element)
     if obj is not None:
         # http://www.gdal.org/gdal_proximity.html
@@ -341,5 +350,8 @@ def adjacency(element):
         except OSError:
             logging.warning('Could not delete temp file %s' % temp_path)
 
+        return True
+
     else:
         logging.warning('No adjacency object defined for %s [%s]' % (element.name, element.elementid))
+        return False

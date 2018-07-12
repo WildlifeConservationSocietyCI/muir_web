@@ -23,6 +23,15 @@ def raster_to_ndarray(in_raster):
     array = gdal_array.DatasetReadAsArray(src_ds)
     array = np.ma.masked_values(array, nodata)
     # array = np.ma.masked_equal(array, nodata)  # int only
+    # Force nodata value to avoid divergent input nodata values
+    # datatype = src_ds.GetRasterBand(1).DataType
+    # if datatype == gdal.GDT_Int16:
+    #     nodata = s.NODATA_INT16
+    # elif datatype == gdal.GDT_Float32:
+    #     nodata = s.NODATA_FLOAT32
+    # else:
+    #     logging.exception('Raster data type %s not implemented' % datatype)
+    # array.set_fill_value(nodata)
 
     src_ds = None
     return array, geotransform, projection, nodata

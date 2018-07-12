@@ -1,5 +1,6 @@
 import requests
 import logging
+import time
 from os.path import join
 from collections import OrderedDict
 import mw_settings as s
@@ -79,12 +80,12 @@ if headers:
 
     # mw.relationships = test_relationships
     # mw.elements = {e['elementid']: mw.Element(e) for e in test_elements}
-    mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
 
     raw_elements = client.get('%smw_elements/' % s.API, **headers).json()
     sorted_elements = sorted(raw_elements, key=lambda k: float(k['elementid']))
     mw.elements = OrderedDict([(e['elementid'], mw.Element(e)) for e in sorted_elements])
-    # mw.elements = {e['elementid']: mw.Element(e) for e in client.get('%smw_elements/' % s.API, **headers).json()}
+    mw.relationships = client.get('%smw_relationships/' % s.API, **headers).json()
+
 
     def map_muirweb(run, initally_mapped):
         logging.info('Starting run %s through elements' % run)
@@ -93,16 +94,18 @@ if headers:
             if (mw.elements[elementid].spatially_explicit is True and
                     mw.elements[elementid].mapped_manually is False and
                     mw.elements[elementid].status is False):
-                # logging.info('attempting to map %s' % elementid)
-                mw.elements[elementid].show_relationships()
                 if mw.calc_grid(elementid):
+                    logging.info('mapped %s' % elementid)
                     mapped.append(elementid)
         if len(mapped) != len(initally_mapped):
             logging.info('Mapped: %s' % list(set(mapped) - set(initally_mapped)))
             map_muirweb(run + 1, mapped)
         else:
             logging.warning('No additional elements mapped.')
+            elapsed = time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time))
+            logging.info('Execution time: {}'.format(elapsed))
 
+    start_time = time.time()
     # Uncomment to clear out everything not mapped by hand before beginning runs
     # mw.clear_automapped()
     map_muirweb(1, [])
