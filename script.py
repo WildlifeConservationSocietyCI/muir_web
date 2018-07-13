@@ -98,7 +98,8 @@ if headers:
                     logging.info('mapped %s' % elementid)
                     mapped.append(elementid)
         if len(mapped) != len(initally_mapped):
-            logging.info('Mapped: %s' % list(set(mapped) - set(initally_mapped)))
+            num_mapped = list(set(mapped) - set(initally_mapped))
+            logging.info('Mapped %s elements: %s' % (len(num_mapped), num_mapped))
             map_muirweb(run + 1, mapped)
         else:
             logging.warning('No additional elements mapped.')
@@ -108,4 +109,5 @@ if headers:
     start_time = time.time()
     # Uncomment to clear out everything not mapped by hand before beginning runs
     # mw.clear_automapped()
+    print('Starting first run: monitor %s for progress' % logfile)
     map_muirweb(1, [])

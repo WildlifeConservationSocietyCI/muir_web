@@ -270,6 +270,7 @@ def subset(element):
     if len(element.object_list) > 0:
         calc_expression = parse_calc(element.subset_rule)
 
+        # logging.info(element.elementid)
         for idx, obj in enumerate(element.object_list):
             # geotransform, projection set to those of last element in object_list
             arrays[obj.elementid], geotransform, projection, nodata = ru.raster_to_ndarray(obj.id_path)
@@ -278,11 +279,25 @@ def subset(element):
                 # GDAL WriteArray() requires datatype-appropriate nodata values in the
                 # underlying array data (i.e. it ignores mask)
                 pa = arrays[obj.elementid].filled(s.NODATA_INT16).astype(int16)
+                # logging.info('pa:')
+                # logging.info(pa.dtype)
+                # logging.info(pa)
+                # logging.info(pa[5000][5000])
                 pa = ma.masked_values(pa, s.NODATA_INT16)
                 present = ma.where(pa.data != s.NODATA_INT16, 1, pa.data)
                 absent = ma.where(pa.data != s.NODATA_INT16, 0, pa.data)
 
+                # if element.elementid == '25.00':
+                #     out = {
+                #         'file': '%s/test.tif' % s.GRID_DIR,
+                #         'geotransform': geotransform,
+                #         'projection': projection,
+                #         'nodata': s.NODATA_INT16
+                #     }
+                #     ru.ndarray_to_raster(absent, out)
+
         try:
+            # logging.info(calc_expression)
             subset_array = ma.where(eval(calc_expression), present, absent)
             present = None
             absent = None
@@ -296,7 +311,7 @@ def subset(element):
                 'nodata': s.NODATA_INT16
             }
 
-            ru.ndarray_to_raster(subset_array, out_raster)
+            ru.ndarray_to_raster(round_int(subset_array, nodata), out_raster)
             return True
 
         except KeyError as e:

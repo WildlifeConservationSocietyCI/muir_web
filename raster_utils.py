@@ -14,27 +14,34 @@ def get_geo_info(ds):
     geotransform = ds.GetGeoTransform()
     projection = ds.GetProjection()
     nodata = ds.GetRasterBand(1).GetNoDataValue()
-    return geotransform, projection, nodata
+    datatype = ds.GetRasterBand(1).DataType
+    return geotransform, projection, datatype, nodata
 
 
 def raster_to_ndarray(in_raster):
     src_ds = gdal.Open(in_raster, GA_ReadOnly)
-    geotransform, projection, nodata = get_geo_info(src_ds)
+    geotransform, projection, datatype, nodata = get_geo_info(src_ds)
     array = gdal_array.DatasetReadAsArray(src_ds)
-    array = np.ma.masked_values(array, nodata)
-    # array = np.ma.masked_equal(array, nodata)  # int only
+
     # Force nodata value to avoid divergent input nodata values
-    # datatype = src_ds.GetRasterBand(1).DataType
-    # if datatype == gdal.GDT_Int16:
-    #     nodata = s.NODATA_INT16
-    # elif datatype == gdal.GDT_Float32:
-    #     nodata = s.NODATA_FLOAT32
-    # else:
-    #     logging.exception('Raster data type %s not implemented' % datatype)
-    # array.set_fill_value(nodata)
+    nodata_norm = s.NODATA_INT16
+    if datatype == gdal.GDT_Int16:
+        nodata_norm = s.NODATA_INT16
+    elif datatype == gdal.GDT_Float32:
+        nodata_norm = s.NODATA_FLOAT32
+    else:
+        logging.exception('Raster data type %s not implemented' % datatype)
+
+    array[array == nodata] = nodata_norm
+    array = np.ma.masked_values(array, nodata_norm)
+    # logging.info(array.data)
+    # logging.info(array.mask)
+    # logging.info(array.fill_value)
+    # logging.info(nodata_norm)
+    # logging.info(array.dtype)
 
     src_ds = None
-    return array, geotransform, projection, nodata
+    return array, geotransform, projection, nodata_norm
 
 
 def ndarray_to_raster(array, out_raster):
