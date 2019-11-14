@@ -12,6 +12,9 @@ logging.basicConfig(filename=logfile,
                     format='%(asctime)s %(levelname)s: %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
+report_csv_grid_elements = join(s.ROOT_DIR, 'grid_elements.csv')
+report_csv_nogrid_elements = join(s.ROOT_DIR, 'nogrid_elements.csv')
+report_csv_element_inputs = join(s.ROOT_DIR, 'element_inputs.csv')
 client = requests.session()
 headers = mw.api_headers(client)
 
@@ -111,3 +114,27 @@ if headers:
     # mw.clear_automapped()
     print('Starting first run: monitor %s for progress' % logfile)
     map_muirweb(1, [])
+
+    grid_elements = []
+    nogrid_elements = []
+    element_inputs_rows = []
+    for elementid in mw.elements:
+        mw.elements[elementid].set_relationships()
+
+        if mw.elements[elementid].status:
+            grid_elements.append([elementid])
+        else:
+            if mw.elements[elementid].spatially_explicit is True:
+                nogrid_elements.append([elementid])
+
+        grid_inputs = [o.elementid for o in mw.elements[elementid].object_list if o.status is True]
+        nogrid_inputs = [o.elementid for o in mw.elements[elementid].object_list if o.status is False]
+        element_inputs_rows.append([elementid, ','.join(grid_inputs), ','.join(nogrid_inputs)])
+
+    mw.write_csv(report_csv_grid_elements, ['elementid'], grid_elements)
+    mw.write_csv(report_csv_nogrid_elements, ['elementid'], nogrid_elements)
+    mw.write_csv(
+        report_csv_element_inputs,
+        ['elementid', 'inputs with grids', 'inputs missing grids'],
+        element_inputs_rows
+    )

@@ -1,4 +1,5 @@
 import os
+import csv
 import logging
 import re
 import functools
@@ -163,6 +164,13 @@ def clear_automapped():
                 os.remove(el.id_path)
             except OSError:
                 logging.warning('Failed to clear %s' % el.id_path)
+
+
+def write_csv(filename, headers, rows):
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
 
 
 # MAPPING METHODS
