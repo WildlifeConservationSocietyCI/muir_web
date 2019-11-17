@@ -215,18 +215,19 @@ def combination(element):
         for group in element.relationships[state]:
             rasters = []
             for rel in element.relationships[state][group]:
-                arr, geotransform, projection, nodata = ru.raster_to_ndarray(rel['obj'].id_path)
-                strength = float(get_by_id(strength_types, rel['rel']['strengthtype'], 'prob')) / 100
-                if default_habitat is None:
-                    default_habitat = ma.copy(arr)
-                    default_habitat[default_habitat >= 0] = 1
+                if rel['rel']['relationshiptype_label'] != s.UNMAPPED_CONDITION:
+                    arr, geotransform, projection, nodata = ru.raster_to_ndarray(rel['obj'].id_path)
+                    strength = float(get_by_id(strength_types, rel['rel']['strengthtype'], 'prob')) / 100
+                    if default_habitat is None:
+                        default_habitat = ma.copy(arr)
+                        default_habitat[default_habitat >= 0] = 1
 
-                if rel['rel']['interactiontype'] == s.REQUIRED:
-                    rasters.append(arr * strength)
-                elif rel['rel']['interactiontype'] == s.ENHANCING:
-                    habitat_mods.append(100 + (arr * strength))
-                elif rel['rel']['interactiontype'] == s.ATTENUATING:
-                    habitat_mods.append(100 - (arr * strength))
+                    if rel['rel']['interactiontype'] == s.REQUIRED:
+                        rasters.append(arr * strength)
+                    elif rel['rel']['interactiontype'] == s.ENHANCING:
+                        habitat_mods.append(100 + (arr * strength))
+                    elif rel['rel']['interactiontype'] == s.ATTENUATING:
+                        habitat_mods.append(100 - (arr * strength))
 
             if len(rasters) > 0:
                 groups.append(union(rasters))

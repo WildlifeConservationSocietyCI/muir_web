@@ -17,4 +17,6 @@ REQUIRED = 1
 ENHANCING = 2
 ATTENUATING = 3
 
+UNMAPPED_CONDITION = 3
+
 params = {'format': 'json'}
