@@ -85,7 +85,9 @@ class Element(object):
         """
         ro_false = []
         for o in self.object_list:
-            if o.status is False:
+            r = get_relationship(self.elementid, o.elementid)
+            if o.status is False and ('relationshiptype_label' not in r or
+                                      r['relationshiptype_label'] != s.UNMAPPED_CONDITION):
                 ro_false.append(o)
 
         if len(ro_false) == 0:
@@ -145,6 +147,13 @@ def get_object(element):  # for subjects with a relationship (subset, adjacency)
     # group = element.relationships[state].keys()[0]
     # return element.relationships[state][group][0]
     return element.object_list[0] or None
+
+
+def get_relationship(id_subject, id_object):
+    for r in relationships:
+        if r['id_subject'] == id_subject and r['id_object'] == id_object:
+            return r
+    return None
 
 
 def id_str(id_decimal):  # form is decimal, but datatype can be str
