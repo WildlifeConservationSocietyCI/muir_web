@@ -224,7 +224,8 @@ def combination(element):
         for group in element.relationships[state]:
             rasters = []
             for rel in element.relationships[state][group]:
-                if rel['rel']['relationshiptype_label'] != s.UNMAPPED_CONDITION:
+                if ('relationshiptype_label' not in rel['rel'] or
+                        rel['rel']['relationshiptype_label'] != s.UNMAPPED_CONDITION):
                     arr, geotransform, projection, nodata = ru.raster_to_ndarray(rel['obj'].id_path)
                     strength = float(get_by_id(strength_types, rel['rel']['strengthtype'], 'prob')) / 100
                     if default_habitat is None:
